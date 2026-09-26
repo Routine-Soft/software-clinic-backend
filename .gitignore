@@ -1,0 +1,8 @@
+# .gitignore
+node_modules/
+dist/
+build/
+dist/installer/
+*.log
+.DS_Store
+.env
