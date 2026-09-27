@@ -1,12 +1,16 @@
 import mongoose from 'mongoose'
+import { randomUUID } from 'node:crypto'
 import { PreApproval } from 'mercadopago'
 import { getMpClient } from '../../config/mercadopago.js'
 import AssinaturaModel from './assinatura.model.js'
+import PagamentoModel from './pagamento.model.js'
+import { interpretarDocumento } from './documento.js'
 import PlanoModel from '../plano/plano.model.js'
 import UserModel from '../user/user.model.js'
 import AppError from '../../errors/AppError.js'
 
-const MP_API = 'https://api.mercadopago.com'
+// MP_API_URL existe só para apontar os testes automatizados para um Mercado Pago falso.
+const MP_API = process.env.MP_API_URL || 'https://api.mercadopago.com'
 
 // Frontend usa HashRouter: a rota de retorno fica depois do "#".
 // O Mercado Pago acrescenta "?preapproval_id=..." ao final dessa URL.
@@ -51,6 +55,71 @@ async function buscarNoMercadoPago(caminho) {
     return await response.json()
 }
 
+// Chamada com corpo/idempotência (criar e cancelar pagamentos). Em caso de erro, a mensagem inclui o detalhe que o Mercado Pago envia.
+async function chamarMercadoPago(metodo, caminho, { corpo, idempotencyKey } = {}) {
+    const resposta = await fetch(`${MP_API}${caminho}`, {
+        method: metodo,
+        headers: {
+            Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+            ...(idempotencyKey ? { 'X-Idempotency-Key': idempotencyKey } : {}),
+        },
+        body: corpo ? JSON.stringify(corpo) : undefined,
+        signal: AbortSignal.timeout(15000),
+    })
+
+    const dados = await resposta.json().catch(() => ({}))
+    if (!resposta.ok) {
+        const detalhes = Array.isArray(dados.cause) ? dados.cause.map((c) => c.description).filter(Boolean) : []
+        const erro = new Error([dados.message, ...detalhes].filter(Boolean).join(' — ') || `HTTP ${resposta.status}`)
+        erro.status = resposta.status
+        throw erro
+    }
+
+    return dados
+}
+
+// Pix avulso: quanto tempo o QR Code vale e quantos dias de acesso cada pagamento libera.
+export const PIX_VALIDADE_MINUTOS = 60
+export const PIX_DIAS_DE_ACESSO = 30
+
+// O Mercado Pago quer a expiração com fuso, no formato 2026-09-28T10:00:00.000-03:00 (horário de Brasília).
+function expiracaoComFuso(data) {
+    return new Date(data.getTime() - 3 * 60 * 60 * 1000).toISOString().replace('Z', '-03:00')
+}
+
+function dataBR(data) {
+    return new Date(data).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+}
+
+// Situação do Pix no Mercado Pago -> situação interna. QR Code vencido chega como "cancelled" com detalhe "expired".
+function situacaoDoPix(payment) {
+    switch (payment.status) {
+        case 'approved':
+            return 'aprovado'
+        case 'rejected':
+            return 'rejeitado'
+        case 'cancelled':
+            return payment.status_detail === 'expired' ? 'expirado' : 'cancelado'
+        default:
+            return 'pendente'
+    }
+}
+
+function pagamentoParaDTO(pagamento) {
+    if (!pagamento) return null
+    return {
+        id: pagamento._id,
+        status: pagamento.status,
+        valor: pagamento.valor,
+        qrCode: pagamento.qrCode,
+        qrCodeBase64: pagamento.qrCodeBase64,
+        expiraEm: pagamento.expiraEm,
+        aprovadoEm: pagamento.aprovadoEm,
+        planoId: pagamento.planoId,
+    }
+}
+
 // Dias de tolerância para quem está com o pagamento em atraso antes de perder o acesso.
 export const DIAS_DE_TOLERANCIA_INADIMPLENTE = 5
 
@@ -59,7 +128,7 @@ const DIA_EM_MS = 24 * 60 * 60 * 1000
 // Regra de bloqueio do sistema. Só olha datas e status, sem gravar nada.
 //  - trial: acesso até o fim do teste
 //  - pendente: quem clicou em "assinar" durante o teste continua no teste até ele acabar
-//  - ativa: acesso liberado
+//  - ativa: acesso liberado (se foi paga por Pix, só até o fim do período pago)
 //  - cancelada: acesso até o fim do período que já foi pago (proximaCobranca)
 //  - inadimplente: tolerância de alguns dias a partir do atraso
 //  - expirada: bloqueado
@@ -72,6 +141,12 @@ export function avaliarAcesso(assinatura, agora = new Date()) {
 
     switch (assinatura.status) {
         case 'ativa':
+            // Pix não renova sozinho: vale até proximaCobranca, depois disso é preciso pagar de novo.
+            if (assinatura.cobranca === 'pix') {
+                return noFuturo(assinatura.proximaCobranca)
+                    ? { liberado: true, motivo: null, ate: assinatura.proximaCobranca }
+                    : { liberado: false, motivo: 'O período pago por Pix terminou. Renove o pagamento para continuar usando o sistema.', ate: null }
+            }
             return { liberado: true, motivo: null, ate: null }
 
         case 'trial':
@@ -107,6 +182,7 @@ export function avaliarAcesso(assinatura, agora = new Date()) {
 export function aplicarStatusPreapproval(assinatura, preapproval) {
     if (preapproval.status === 'authorized') {
         assinatura.status = 'ativa'
+        assinatura.cobranca = 'recorrente'
         assinatura.inadimplenteDesde = null
         if (preapproval.next_payment_date) assinatura.proximaCobranca = new Date(preapproval.next_payment_date)
     } else if (preapproval.status === 'cancelled') {
@@ -161,8 +237,10 @@ export const AssinaturaService = {
             assinatura = await AssinaturaModel.findOne({ tenantId }).sort({ createdAt: -1 }).populate('planoId')
         }
 
-        // Teste que passou do prazo vira "expirada" na primeira consulta depois do vencimento.
-        if (assinatura.status === 'trial' && assinatura.dataFimTrial && assinatura.dataFimTrial < new Date()) {
+        // Teste ou período pago por Pix que passou do prazo vira "expirada" na primeira consulta depois do vencimento.
+        const vencidoTrial = assinatura.status === 'trial' && assinatura.dataFimTrial && assinatura.dataFimTrial < new Date()
+        const vencidoPix = assinatura.status === 'ativa' && assinatura.cobranca === 'pix' && assinatura.proximaCobranca && assinatura.proximaCobranca < new Date()
+        if (vencidoTrial || vencidoPix) {
             assinatura.status = 'expirada'
             await assinatura.save()
         }
@@ -179,6 +257,9 @@ export const AssinaturaService = {
     // Se ainda não tinha pago nada (checkout pendente), volta ao teste em vez de ficar sem nada.
     async cancelarAssinatura(tenantId) {
         const assinatura = await AssinaturaModel.findOne({ tenantId }).sort({ createdAt: -1 })
+        if (assinatura?.status === 'ativa' && assinatura.cobranca === 'pix') {
+            throw new AppError(`Assinaturas pagas por Pix não renovam sozinhas, então não há o que cancelar. O acesso continua até ${dataBR(assinatura.proximaCobranca)}.`, 400)
+        }
         if (!assinatura || !['ativa', 'pendente', 'inadimplente'].includes(assinatura.status) || !assinatura.mercadoPagoPreapprovalId) {
             throw new AppError('Não há uma assinatura paga para cancelar', 400)
         }
@@ -235,6 +316,9 @@ export const AssinaturaService = {
 
         const assinatura = await this.obterAssinaturaAtual(tenantId)
         if (assinatura.status === 'ativa') {
+            if (assinatura.cobranca === 'pix') {
+                throw new AppError(`Seu período pago por Pix está ativo até ${dataBR(assinatura.proximaCobranca)}. Quando ele terminar, você poderá assinar no cartão ou renovar por Pix.`, 409)
+            }
             throw new AppError('Esta clínica já possui uma assinatura ativa. Para trocar de plano, cancele a assinatura atual antes.', 409)
         }
 
@@ -301,6 +385,168 @@ export const AssinaturaService = {
         return await this.obterAssinaturaAtual(tenantId)
     },
 
+    // Gera um Pix (QR Code + "copia e cola") para pagar um período de acesso do plano escolhido.
+    async iniciarPagamentoPix(tenantId, planoId, documento) {
+        const admin = await UserModel.findById(tenantId)
+        if (!admin) {
+            throw new AppError('Clínica não encontrada', 404)
+        }
+
+        const pagador = interpretarDocumento(documento)
+        if (!pagador) {
+            throw new AppError('Informe um CPF ou CNPJ válido de quem vai pagar o Pix', 400)
+        }
+
+        // Se um Pix anterior foi pago e ainda não foi confirmado, confirma antes de gerar outro.
+        await this.confirmarPixPendente(tenantId).catch(() => null)
+        const assinatura = await this.obterAssinaturaAtual(tenantId)
+
+        if (assinatura.status === 'ativa' && assinatura.cobranca !== 'pix') {
+            throw new AppError('Sua assinatura no cartão está ativa e renova sozinha. Para pagar por Pix, cancele a assinatura no cartão antes.', 409)
+        }
+        if (assinatura.status === 'pendente') {
+            throw new AppError('Há um pagamento no cartão aguardando confirmação. Conclua ou desista dele antes de pagar por Pix.', 409)
+        }
+
+        const plano = await this.escolherPlanoPago(assinatura, planoId)
+        if (assinatura.status === 'ativa' && String(assinatura.planoId?._id ?? assinatura.planoId) !== String(plano._id)) {
+            throw new AppError('Para trocar de plano, aguarde o fim do período já pago. Por enquanto você pode renovar o plano atual.', 409)
+        }
+
+        // Só um Pix pendente por clínica: os anteriores são cancelados.
+        const antigos = await PagamentoModel.find({ tenantId, status: 'pendente' })
+        for (const antigo of antigos) {
+            await chamarMercadoPago('PUT', `/v1/payments/${antigo.mercadoPagoPaymentId}`, { corpo: { status: 'cancelled' } }).catch(() => null)
+            antigo.status = 'cancelado'
+            await antigo.save()
+        }
+
+        const expiraEm = new Date(Date.now() + PIX_VALIDADE_MINUTOS * 60 * 1000)
+        const corpo = {
+            transaction_amount: plano.preco,
+            description: `Assinatura SoftwareClinic - ${plano.nome} (${PIX_DIAS_DE_ACESSO} dias)`,
+            payment_method_id: 'pix',
+            date_of_expiration: expiracaoComFuso(expiraEm),
+            external_reference: assinatura._id.toString(),
+            // No ambiente de teste o pagador precisa ser um usuário de teste; em produção MP_TEST_PAYER_EMAIL fica vazio.
+            payer: {
+                email: process.env.MP_TEST_PAYER_EMAIL || admin.email,
+                identification: { type: pagador.tipo, number: pagador.numero },
+            },
+        }
+        if (process.env.APP_URL_BACKEND) {
+            corpo.notification_url = `${process.env.APP_URL_BACKEND.replace(/\/+$/, '')}/api/assinaturas/webhook`
+        }
+
+        let payment
+        try {
+            payment = await chamarMercadoPago('POST', '/v1/payments', { corpo, idempotencyKey: randomUUID() })
+        } catch (error) {
+            throw traduzirErroMercadoPago(error, 'gerar o Pix')
+        }
+
+        const dados = payment.point_of_interaction?.transaction_data
+        if (!dados?.qr_code) {
+            await chamarMercadoPago('PUT', `/v1/payments/${payment.id}`, { corpo: { status: 'cancelled' } }).catch(() => null)
+            throw new AppError('O Mercado Pago não devolveu o QR Code do Pix. Verifique se a conta tem uma chave Pix cadastrada.', 502)
+        }
+
+        const pagamento = await PagamentoModel.create({
+            tenantId,
+            assinaturaId: assinatura._id,
+            planoId: plano._id,
+            mercadoPagoPaymentId: String(payment.id),
+            valor: plano.preco,
+            qrCode: dados.qr_code,
+            qrCodeBase64: dados.qr_code_base64 ?? null,
+            ticketUrl: dados.ticket_url ?? null,
+            expiraEm: payment.date_of_expiration ? new Date(payment.date_of_expiration) : expiraEm,
+        })
+
+        return pagamentoParaDTO(pagamento)
+    },
+
+    // Pergunta ao Mercado Pago pelo Pix pendente da clínica (o id vem do banco, nunca do cliente).
+    // É chamada pela janela do Pix, ao abrir a assinatura e ao gerar outro Pix: assim quem paga depois de fechar a janela
+    // é liberado mesmo que o aviso (webhook) do Mercado Pago não chegue.
+    async confirmarPixPendente(tenantId) {
+        const pendente = await PagamentoModel.findOne({ tenantId, status: 'pendente' }).sort({ createdAt: -1 })
+        if (!pendente) return
+
+        const payment = await buscarNoMercadoPago(`/v1/payments/${pendente.mercadoPagoPaymentId}`)
+        await this.aplicarPagamentoPix(pendente, payment)
+
+        // Se o Mercado Pago ainda não marcou como vencido, o prazo local decide.
+        const atualizado = await PagamentoModel.findById(pendente._id)
+        if (atualizado.status === 'pendente' && atualizado.expiraEm && atualizado.expiraEm < new Date()) {
+            atualizado.status = 'expirado'
+            await atualizado.save()
+        }
+    },
+
+    // Confirma o Pix pendente e devolve o pagamento mais recente com a assinatura atualizada.
+    async sincronizarPix(tenantId) {
+        await this.confirmarPixPendente(tenantId)
+
+        const ultimo = await PagamentoModel.findOne({ tenantId }).sort({ createdAt: -1 })
+        const assinatura = await this.obterAssinaturaAtual(tenantId)
+        return { pagamento: pagamentoParaDTO(ultimo), assinatura }
+    },
+
+    // Aplica o que o Mercado Pago informou sobre o Pix. Serve para o webhook e para a consulta da tela.
+    async aplicarPagamentoPix(pagamento, payment) {
+        const situacao = situacaoDoPix(payment)
+
+        if (situacao !== 'aprovado') {
+            if (pagamento.status === 'pendente' && situacao !== 'pendente') {
+                pagamento.status = situacao
+                await pagamento.save()
+            }
+            return pagamento
+        }
+
+        // Só libera se o valor pago é o valor cobrado.
+        if (Math.abs(Number(payment.transaction_amount) - pagamento.valor) > 0.005) return pagamento
+
+        // Atômico: mesmo que webhook e consulta cheguem juntos, só um deles consegue marcar como aprovado (e estender o acesso).
+        const aprovado = await PagamentoModel.findOneAndUpdate(
+            { _id: pagamento._id, status: { $ne: 'aprovado' } },
+            { $set: { status: 'aprovado', aprovadoEm: new Date() } },
+            { new: true }
+        )
+        if (!aprovado) return pagamento
+
+        await this.liberarAcessoPix(aprovado)
+        return aprovado
+    },
+
+    // Estende o acesso em PIX_DIAS_DE_ACESSO dias, somando ao que ainda restar do período já pago.
+    async liberarAcessoPix(pagamento) {
+        const assinatura = await AssinaturaModel.findById(pagamento.assinaturaId)
+        if (!assinatura) return
+
+        const agora = new Date()
+        const temPeriodoPago = (assinatura.status === 'ativa' && assinatura.cobranca === 'pix') || assinatura.status === 'cancelada'
+        const base = temPeriodoPago && assinatura.proximaCobranca && assinatura.proximaCobranca > agora ? assinatura.proximaCobranca : agora
+
+        // Cobrança recorrente antiga (em atraso, pausada no Mercado Pago) é encerrada para não continuar cobrando ao lado do Pix.
+        if (assinatura.status === 'inadimplente' && assinatura.mercadoPagoPreapprovalId) {
+            await new PreApproval(getMpClient())
+                .update({ id: assinatura.mercadoPagoPreapprovalId, body: { status: 'cancelled' } })
+                .catch(() => null)
+        }
+        if (['inadimplente', 'cancelada'].includes(assinatura.status)) {
+            assinatura.mercadoPagoPreapprovalId = null
+        }
+
+        assinatura.planoId = pagamento.planoId
+        assinatura.status = 'ativa'
+        assinatura.cobranca = 'pix'
+        assinatura.inadimplenteDesde = null
+        assinatura.proximaCobranca = new Date(base.getTime() + PIX_DIAS_DE_ACESSO * DIA_EM_MS)
+        await assinatura.save()
+    },
+
     async processarWebhookPreapproval(preapprovalId) {
         const assinatura = await AssinaturaModel.findOne({ mercadoPagoPreapprovalId: preapprovalId })
         if (!assinatura) return
@@ -313,6 +559,13 @@ export const AssinaturaService = {
     async processarWebhookPayment(paymentId) {
         const payment = await buscarNoMercadoPago(`/v1/payments/${paymentId}`)
 
+        // Pix avulso: identificado pelo id do pagamento que guardamos ao gerar o QR Code.
+        if (payment.payment_method_id === 'pix') {
+            const pagamento = await PagamentoModel.findOne({ mercadoPagoPaymentId: String(payment.id) })
+            if (pagamento) await this.aplicarPagamentoPix(pagamento, payment)
+            return
+        }
+
         if (!payment.external_reference || !mongoose.isValidObjectId(payment.external_reference)) return
 
         const assinatura = await AssinaturaModel.findById(payment.external_reference)
@@ -320,6 +573,7 @@ export const AssinaturaService = {
 
         if (payment.status === 'approved') {
             assinatura.status = 'ativa'
+            assinatura.cobranca = 'recorrente'
             assinatura.inadimplenteDesde = null
             const proxima = new Date()
             proxima.setMonth(proxima.getMonth() + 1)

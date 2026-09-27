@@ -12,6 +12,8 @@ const assinaturaSchema = new mongoose.Schema({
 
     dataInicio: { type: Date, default: Date.now },
     dataFimTrial: { type: Date, default: null },
+    // "recorrente": cartão, renova sozinho no Mercado Pago. "pix": pagamento avulso, vale até proximaCobranca.
+    cobranca: { type: String, enum: ['recorrente', 'pix'], default: 'recorrente' },
     mercadoPagoPreapprovalId: { type: String, default: null },
     proximaCobranca: { type: Date, default: null },
     inadimplenteDesde: { type: Date, default: null },

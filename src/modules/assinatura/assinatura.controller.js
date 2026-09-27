@@ -28,6 +28,8 @@ function comAcesso(assinatura) {
 export const AssinaturaController = {
     async getAtual(req, reply) {
         const { tenantId } = req.user
+        // Quem pagou um Pix e fechou a janela é liberado assim que a tela consulta a assinatura (falha do Mercado Pago não impede a consulta).
+        await AssinaturaService.confirmarPixPendente(tenantId).catch(() => null)
         const assinatura = await AssinaturaService.obterAssinaturaAtual(tenantId)
         return reply.send({ data: comAcesso(assinatura) })
     },
@@ -36,6 +38,19 @@ export const AssinaturaController = {
         const { tenantId } = req.user
         const result = await AssinaturaService.iniciarCheckoutPago(tenantId, req.body?.planoId)
         return reply.send({ data: result, message: 'Checkout de assinatura criado com sucesso' })
+    },
+
+    async pix(req, reply) {
+        const { tenantId } = req.user
+        const { planoId, documento } = req.body ?? {}
+        const pagamento = await AssinaturaService.iniciarPagamentoPix(tenantId, planoId, documento)
+        return reply.send({ data: pagamento, message: 'Pix gerado com sucesso' })
+    },
+
+    async sincronizarPix(req, reply) {
+        const { tenantId } = req.user
+        const { pagamento, assinatura } = await AssinaturaService.sincronizarPix(tenantId)
+        return reply.send({ data: { pagamento, assinatura: comAcesso(assinatura) } })
     },
 
     async sincronizar(req, reply) {

@@ -15,6 +15,8 @@ export async function assinaturaRoutes(fastify) {
         const soAdmin = { preHandler: authorize(['admin', 'super_admin']) }
         fastify.post('/assinaturas/checkout', soAdmin, AssinaturaController.checkout)
         fastify.post('/assinaturas/sincronizar', soAdmin, AssinaturaController.sincronizar)
+        fastify.post('/assinaturas/pix', soAdmin, AssinaturaController.pix)
+        fastify.post('/assinaturas/pix/sincronizar', soAdmin, AssinaturaController.sincronizarPix)
         fastify.post('/assinaturas/cancelar', soAdmin, AssinaturaController.cancelar)
     })
 }
