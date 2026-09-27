@@ -17,8 +17,13 @@ function urlDeRetorno() {
 }
 
 // Erros do Mercado Pago chegam com mensagens técnicas em inglês; troca as mais comuns por algo acionável.
-function traduzirErroMercadoPago(error) {
+function traduzirErroMercadoPago(error, acao = 'iniciar o pagamento') {
     const mensagem = error?.message ?? ''
+
+    // A assinatura foi criada por outra conta do Mercado Pago (ex.: criada com credenciais de teste e o servidor agora usa as de produção).
+    if (mensagem.includes('not authorized')) {
+        return new AppError('O Mercado Pago não autorizou esta operação: a assinatura pertence a outra conta (credenciais diferentes das atuais). Fale com o suporte.', 502)
+    }
 
     if (mensagem.includes('payer and collector must be real or test users')) {
         const dica = process.env.NODE_ENV === 'production'
@@ -31,7 +36,7 @@ function traduzirErroMercadoPago(error) {
         return new AppError('URL de retorno do Mercado Pago inválida. Confira a variável APP_URL no .env.', 500)
     }
 
-    return new AppError(`Não foi possível iniciar o pagamento no Mercado Pago: ${mensagem || 'erro desconhecido'}`, 502)
+    return new AppError(`Não foi possível ${acao} no Mercado Pago: ${mensagem || 'erro desconhecido'}`, 502)
 }
 
 async function buscarNoMercadoPago(caminho) {
@@ -167,7 +172,7 @@ export const AssinaturaService = {
         try {
             await new PreApproval(getMpClient()).update({ id: assinatura.mercadoPagoPreapprovalId, body: { status: 'cancelled' } })
         } catch (error) {
-            throw traduzirErroMercadoPago(error)
+            throw traduzirErroMercadoPago(error, 'cancelar a assinatura')
         }
 
         if (assinatura.status === 'pendente') {
@@ -185,12 +190,30 @@ export const AssinaturaService = {
         return await this.obterAssinaturaAtual(tenantId)
     },
 
-    async iniciarCheckoutPago(tenantId) {
-        const planoPago = await PlanoModel.findOne({ tipo: 'pago', ativo: true })
-        if (!planoPago) {
-            throw new AppError('Plano pago não configurado', 500)
+    // Plano escolhido pelo cliente; sem escolha, mantém o plano pago que a assinatura já tem (ex.: "refazer pagamento")
+    // ou, na falta dele, o plano pago ativo mais barato.
+    async escolherPlanoPago(assinatura, planoId) {
+        if (planoId) {
+            const plano = mongoose.isValidObjectId(planoId)
+                ? await PlanoModel.findOne({ _id: planoId, tipo: 'pago', ativo: true })
+                : null
+            if (!plano) {
+                throw new AppError('Plano não encontrado ou indisponível para assinatura', 404)
+            }
+            return plano
         }
 
+        const atual = assinatura.planoId
+        if (atual?.tipo === 'pago' && atual.ativo) return atual
+
+        const plano = await PlanoModel.findOne({ tipo: 'pago', ativo: true }).sort({ preco: 1 })
+        if (!plano) {
+            throw new AppError('Plano pago não configurado', 500)
+        }
+        return plano
+    },
+
+    async iniciarCheckoutPago(tenantId, planoId) {
         const admin = await UserModel.findById(tenantId)
         if (!admin) {
             throw new AppError('Clínica não encontrada', 404)
@@ -198,8 +221,10 @@ export const AssinaturaService = {
 
         const assinatura = await this.obterAssinaturaAtual(tenantId)
         if (assinatura.status === 'ativa') {
-            throw new AppError('Esta clínica já possui uma assinatura ativa', 409)
+            throw new AppError('Esta clínica já possui uma assinatura ativa. Para trocar de plano, cancele a assinatura atual antes.', 409)
         }
+
+        const planoPago = await this.escolherPlanoPago(assinatura, planoId)
 
         const body = {
             reason: `Assinatura SoftwareClinic - ${planoPago.nome}`,
@@ -228,8 +253,17 @@ export const AssinaturaService = {
             throw traduzirErroMercadoPago(error)
         }
 
+        // Quem estava inadimplente ainda tem uma cobrança recorrente pausada no Mercado Pago; ela é encerrada
+        // para não ficar uma assinatura antiga viva ao lado da nova (falhas aqui não impedem a nova assinatura).
+        if (assinatura.status === 'inadimplente' && assinatura.mercadoPagoPreapprovalId) {
+            await new PreApproval(getMpClient())
+                .update({ id: assinatura.mercadoPagoPreapprovalId, body: { status: 'cancelled' } })
+                .catch(() => null)
+        }
+
         assinatura.planoId = planoPago._id
         assinatura.status = 'pendente'
+        assinatura.inadimplenteDesde = null
         assinatura.mercadoPagoPreapprovalId = result.id
         await assinatura.save()
 

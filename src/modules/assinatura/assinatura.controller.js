@@ -34,7 +34,7 @@ export const AssinaturaController = {
 
     async checkout(req, reply) {
         const { tenantId } = req.user
-        const result = await AssinaturaService.iniciarCheckoutPago(tenantId)
+        const result = await AssinaturaService.iniciarCheckoutPago(tenantId, req.body?.planoId)
         return reply.send({ data: result, message: 'Checkout de assinatura criado com sucesso' })
     },
 
