@@ -177,20 +177,43 @@ export function avaliarAcesso(assinatura, agora = new Date()) {
     }
 }
 
+// Checkout que nunca foi pago (desistência, ou recusado/cancelado pelo Mercado Pago): a clínica volta ao plano gratuito,
+// em teste se ainda houver prazo, senão expirada. Não há período pago, então não sobra acesso extra.
+async function voltarAoGratuito(assinatura) {
+    const planoGratis = await PlanoModel.findOne({ tipo: 'gratis', ativo: true })
+    const testeVigente = !!assinatura.dataFimTrial && assinatura.dataFimTrial > new Date()
+
+    assinatura.status = testeVigente ? 'trial' : 'expirada'
+    if (planoGratis) assinatura.planoId = planoGratis._id
+    assinatura.mercadoPagoPreapprovalId = null
+    assinatura.inadimplenteDesde = null
+    return assinatura
+}
+
 // Traduz o estado da assinatura recorrente do Mercado Pago para o estado interno.
-// "pending" (aguardando o pagador concluir) mantém "pendente".
-export function aplicarStatusPreapproval(assinatura, preapproval) {
+// "nuncaPagou" (sem proximaCobranca) separa quem só tentou assinar de quem já teve um período pago:
+// só o segundo pode ficar "em atraso" ou "cancelada com acesso".
+export async function aplicarStatusPreapproval(assinatura, preapproval) {
+    const nuncaPagou = !assinatura.proximaCobranca
+
     if (preapproval.status === 'authorized') {
         assinatura.status = 'ativa'
         assinatura.cobranca = 'recorrente'
         assinatura.inadimplenteDesde = null
         if (preapproval.next_payment_date) assinatura.proximaCobranca = new Date(preapproval.next_payment_date)
     } else if (preapproval.status === 'cancelled') {
-        // Mantém proximaCobranca: é até quando o cliente já pagou e ainda tem acesso.
-        assinatura.status = 'cancelada'
+        if (nuncaPagou && ['pendente', 'inadimplente'].includes(assinatura.status)) {
+            await voltarAoGratuito(assinatura)
+        } else {
+            // Mantém proximaCobranca: é até quando o cliente já pagou e ainda tem acesso.
+            assinatura.status = 'cancelada'
+        }
     } else if (preapproval.status === 'paused') {
-        if (assinatura.status !== 'inadimplente') assinatura.inadimplenteDesde = new Date()
-        assinatura.status = 'inadimplente'
+        // Primeira cobrança que não passou: continua pendente (o cliente pode tentar de novo ou desistir).
+        if (!(nuncaPagou && assinatura.status === 'pendente')) {
+            if (assinatura.status !== 'inadimplente') assinatura.inadimplenteDesde = new Date()
+            assinatura.status = 'inadimplente'
+        }
     }
 
     return assinatura
@@ -270,12 +293,9 @@ export const AssinaturaService = {
             throw traduzirErroMercadoPago(error, 'cancelar a assinatura')
         }
 
-        if (assinatura.status === 'pendente') {
-            const planoGratis = await PlanoModel.findOne({ tipo: 'gratis', ativo: true })
-            const testeVigente = assinatura.dataFimTrial && assinatura.dataFimTrial > new Date()
-            assinatura.status = testeVigente ? 'trial' : 'expirada'
-            if (planoGratis) assinatura.planoId = planoGratis._id
-            assinatura.mercadoPagoPreapprovalId = null
+        // Sem período pago (checkout pendente, ou "em atraso" de quem nunca chegou a pagar): desistir é voltar ao gratuito.
+        if (assinatura.status === 'pendente' || (assinatura.status === 'inadimplente' && !assinatura.proximaCobranca)) {
+            await voltarAoGratuito(assinatura)
         } else {
             assinatura.status = 'cancelada'
             assinatura.inadimplenteDesde = null
@@ -362,6 +382,8 @@ export const AssinaturaService = {
         assinatura.planoId = planoPago._id
         assinatura.status = 'pendente'
         assinatura.inadimplenteDesde = null
+        // Um novo checkout começa sem período pago: se a primeira cobrança for recusada, não é "atraso" (ver aplicarStatusPreapproval).
+        assinatura.proximaCobranca = null
         assinatura.mercadoPagoPreapprovalId = result.id
         await assinatura.save()
 
@@ -378,7 +400,7 @@ export const AssinaturaService = {
 
         if (assinatura.mercadoPagoPreapprovalId) {
             const preapproval = await buscarNoMercadoPago(`/preapproval/${assinatura.mercadoPagoPreapprovalId}`)
-            aplicarStatusPreapproval(assinatura, preapproval)
+            await aplicarStatusPreapproval(assinatura, preapproval)
             await assinatura.save()
         }
 
@@ -552,7 +574,7 @@ export const AssinaturaService = {
         if (!assinatura) return
 
         const preapproval = await buscarNoMercadoPago(`/preapproval/${preapprovalId}`)
-        aplicarStatusPreapproval(assinatura, preapproval)
+        await aplicarStatusPreapproval(assinatura, preapproval)
         await assinatura.save()
     },
 
@@ -579,8 +601,13 @@ export const AssinaturaService = {
             proxima.setMonth(proxima.getMonth() + 1)
             assinatura.proximaCobranca = proxima
         } else if (['rejected', 'cancelled'].includes(payment.status)) {
-            if (assinatura.status !== 'inadimplente') assinatura.inadimplenteDesde = new Date()
-            assinatura.status = 'inadimplente'
+            // Primeiro pagamento recusado (nunca houve período pago): não é atraso. Continua pendente até o Mercado Pago
+            // cancelar a assinatura (o aviso da assinatura devolve ao gratuito) ou o cliente tentar de novo/desistir.
+            const primeiraTentativa = assinatura.status === 'pendente' && !assinatura.proximaCobranca
+            if (!primeiraTentativa) {
+                if (assinatura.status !== 'inadimplente') assinatura.inadimplenteDesde = new Date()
+                assinatura.status = 'inadimplente'
+            }
         }
 
         await assinatura.save()
