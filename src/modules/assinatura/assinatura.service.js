@@ -142,9 +142,23 @@ export const AssinaturaService = {
     },
 
     async obterAssinaturaAtual(tenantId) {
-        const assinatura = await AssinaturaModel.findOne({ tenantId }).sort({ createdAt: -1 }).populate('planoId')
+        let assinatura = await AssinaturaModel.findOne({ tenantId }).sort({ createdAt: -1 }).populate('planoId')
+
+        // Clínica sem registro de assinatura (apagado à mão, ou conta anterior ao plano gratuito): recria como "expirada",
+        // sem conceder um novo período de teste, para que ela consiga escolher um plano e assinar.
         if (!assinatura) {
-            throw new AppError('Assinatura não encontrada', 404)
+            const planoGratis = await PlanoModel.findOne({ tipo: 'gratis', ativo: true })
+            if (!planoGratis) {
+                throw new AppError('Plano gratuito não configurado', 500)
+            }
+
+            const agora = new Date()
+            await AssinaturaModel.findOneAndUpdate(
+                { tenantId },
+                { $setOnInsert: { planoId: planoGratis._id, status: 'expirada', dataInicio: agora, dataFimTrial: agora } },
+                { upsert: true }
+            )
+            assinatura = await AssinaturaModel.findOne({ tenantId }).sort({ createdAt: -1 }).populate('planoId')
         }
 
         // Teste que passou do prazo vira "expirada" na primeira consulta depois do vencimento.
