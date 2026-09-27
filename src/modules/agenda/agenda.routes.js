@@ -1,11 +1,13 @@
 import { AgendaController } from './agenda.controller.js'
 import { authenticate } from '../shared/middlewares/auth.middleware.js'
+import { exigirAssinaturaAtiva } from '../shared/middlewares/assinatura.middleware.js'
 
 export async function agendaRoutes(fastify) {
 
     fastify.register(async function (fastify) {
 
         fastify.addHook('preHandler', authenticate)
+        fastify.addHook('preHandler', exigirAssinaturaAtiva)
 
         fastify.get('/agendas', AgendaController.getAllAgendas)
         fastify.get('/agendas/:id', AgendaController.getAgendaById)

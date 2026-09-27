@@ -1,11 +1,13 @@
 import { EmpresaController } from './empresa.controller.js'
 import { authenticate } from '../shared/middlewares/auth.middleware.js'
+import { exigirAssinaturaAtiva } from '../shared/middlewares/assinatura.middleware.js'
 
 export async function empresaRoutes(fastify) {
 
     fastify.register(async function (fastify) {
 
         fastify.addHook('preHandler', authenticate)
+        fastify.addHook('preHandler', exigirAssinaturaAtiva)
 
         fastify.get('/empresas', EmpresaController.getAllEmpresas)
         fastify.get('/empresas/:id', EmpresaController.getEmpresaById)

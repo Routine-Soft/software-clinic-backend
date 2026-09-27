@@ -14,6 +14,7 @@ const assinaturaSchema = new mongoose.Schema({
     dataFimTrial: { type: Date, default: null },
     mercadoPagoPreapprovalId: { type: String, default: null },
     proximaCobranca: { type: Date, default: null },
+    inadimplenteDesde: { type: Date, default: null },
 
 }, { timestamps: true });
 

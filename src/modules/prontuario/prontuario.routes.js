@@ -1,11 +1,13 @@
 import { ProntuarioController } from './prontuario.controller.js'
 import { authenticate } from '../shared/middlewares/auth.middleware.js'
+import { exigirAssinaturaAtiva } from '../shared/middlewares/assinatura.middleware.js'
 
 export async function prontuarioRoutes(fastify) {
 
     fastify.register(async function (fastify) {
 
         fastify.addHook('preHandler', authenticate)
+        fastify.addHook('preHandler', exigirAssinaturaAtiva)
 
         fastify.get('/prontuarios', ProntuarioController.getAllProntuarios)
         fastify.get('/prontuarios/:id', ProntuarioController.getProntuarioById)
