@@ -17,6 +17,7 @@ import { listaEsperaRoutes } from "./src/modules/lista-espera/lista-espera.route
 import { planoRoutes } from "./src/modules/plano/plano.routes.js";
 import { assinaturaRoutes } from "./src/modules/assinatura/assinatura.routes.js";
 import { printRoutes } from "./src/modules/print/print.routes.js";
+import { comissaoRoutes } from "./src/modules/comissao/comissao.routes.js";
 
 const fastify = Fastify({ logger: true })
 
@@ -51,6 +52,7 @@ await fastify.register(listaEsperaRoutes, { prefix: '/api' })
 await fastify.register(planoRoutes, { prefix: '/api' })
 await fastify.register(assinaturaRoutes, { prefix: '/api' })
 await fastify.register(printRoutes, { prefix: '/api' })
+await fastify.register(comissaoRoutes, { prefix: '/api' })
 
 const start = async () => {
   try {

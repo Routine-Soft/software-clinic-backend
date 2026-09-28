@@ -4,11 +4,12 @@ export function createServicoDTO(body) {
         tipo: body.tipo,
         qtdDias: body.tipo === 'pacote' ? body.qtdDias : null,
         preco: body.preco,
+        comissao: body.comissao ?? 0,
     }
 }
 
 export function updateServicoDTO(body) {
-    const allowed = ['nome', 'tipo', 'qtdDias', 'preco']
+    const allowed = ['nome', 'tipo', 'qtdDias', 'preco', 'comissao']
     return Object.fromEntries(
         Object.entries(body).filter(([key]) => allowed.includes(key))
     )

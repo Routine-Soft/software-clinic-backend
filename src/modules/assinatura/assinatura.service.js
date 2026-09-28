@@ -137,6 +137,10 @@ export function avaliarAcesso(assinatura, agora = new Date()) {
         return { liberado: false, motivo: 'Esta clínica não possui assinatura. Entre em contato com o suporte.', ate: null }
     }
 
+    if (assinatura.acessoRevogado) {
+        return { liberado: false, motivo: 'O acesso desta clínica foi revogado pelo suporte. Entre em contato para regularizar.', ate: null }
+    }
+
     const noFuturo = (data) => !!data && new Date(data) > agora
 
     switch (assinatura.status) {
@@ -229,7 +233,7 @@ export const AssinaturaService = {
 
         const dataInicio = new Date()
         const dataFimTrial = new Date(dataInicio)
-        dataFimTrial.setDate(dataFimTrial.getDate() + (planoGratis.duracaoDiasTrial || 15))
+        dataFimTrial.setDate(dataFimTrial.getDate() + (planoGratis.duracaoDiasTrial || 3))
 
         return await AssinaturaModel.create({
             tenantId,
@@ -600,6 +604,24 @@ export const AssinaturaService = {
             const proxima = new Date()
             proxima.setMonth(proxima.getMonth() + 1)
             assinatura.proximaCobranca = proxima
+
+            // Registro da cobrança para a receita do painel do super_admin. O Mercado Pago pode reenviar o mesmo
+            // aviso mais de uma vez; o upsert por mercadoPagoPaymentId garante que cada cobrança conte só uma vez.
+            await PagamentoModel.findOneAndUpdate(
+                { mercadoPagoPaymentId: String(payment.id) },
+                {
+                    $setOnInsert: {
+                        tenantId: assinatura.tenantId,
+                        assinaturaId: assinatura._id,
+                        planoId: assinatura.planoId,
+                        metodo: 'recorrente',
+                        status: 'aprovado',
+                        valor: payment.transaction_amount,
+                        aprovadoEm: new Date(),
+                    },
+                },
+                { upsert: true }
+            )
         } else if (['rejected', 'cancelled'].includes(payment.status)) {
             // Primeiro pagamento recusado (nunca houve período pago): não é atraso. Continua pendente até o Mercado Pago
             // cancelar a assinatura (o aviso da assinatura devolve ao gratuito) ou o cliente tentar de novo/desistir.

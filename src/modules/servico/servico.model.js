@@ -9,6 +9,8 @@ const servicoSchema = new mongoose.Schema({
         default: null,
     },
     preco: { type: Number, required: true },
+    // Valor em dinheiro (não percentual) pago ao profissional por atendimento realizado; o resto do preço fica com a clínica.
+    comissao: { type: Number, default: 0, min: 0 },
 
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
 

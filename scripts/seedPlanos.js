@@ -7,7 +7,7 @@ async function seed() {
   await db();
 
   const planos = [
-    { nome: "Gratuito", tipo: "gratis", preco: 0, duracaoDiasTrial: 15, ativo: true },
+    { nome: "Gratuito", tipo: "gratis", preco: 0, duracaoDiasTrial: 3, ativo: true },
     { nome: "Pago", tipo: "pago", preco: 99.9, ativo: true },
   ];
 

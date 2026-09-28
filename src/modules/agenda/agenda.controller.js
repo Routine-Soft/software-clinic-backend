@@ -28,6 +28,15 @@ export const AgendaController = {
         return reply.send({ data: agenda, message: 'Agendamento atualizado com sucesso' })
     },
 
+    async definirRealizado(req, reply) {
+        const realizado = req.body?.realizado !== false
+        const agenda = await AgendaService.definirRealizado(req.params.id, req.user, realizado)
+        return reply.send({
+            data: agenda,
+            message: realizado ? 'Atendimento marcado como realizado' : 'Atendimento desmarcado como realizado',
+        })
+    },
+
     async cancelarAgenda(req, reply) {
         const { id } = req.params
         const { tenantId } = req.user

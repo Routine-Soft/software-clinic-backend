@@ -17,6 +17,15 @@ const agendaSchema = new mongoose.Schema({
     convenioId: { type: mongoose.Schema.Types.ObjectId, ref: 'convenios', default: null },
 
     status: { type: String, enum: ['aguardando', 'realizado', 'cancelado'], default: 'aguardando' },
+    realizadoEm: { type: Date, default: null },
+
+    // Comissão do profissional por este atendimento. O valor é copiado do serviço no momento em que o atendimento
+    // é marcado como realizado (mudar a comissão do serviço depois não altera o que já foi feito).
+    // pagamentoId nulo = pendente; preenchido = já paga naquele pagamento.
+    comissao: {
+        valor: { type: Number, default: 0 },
+        pagamentoId: { type: mongoose.Schema.Types.ObjectId, ref: 'comissaopagamentos', default: null },
+    },
 
     grupoRecorrenciaId: { type: mongoose.Schema.Types.ObjectId, default: null },
 

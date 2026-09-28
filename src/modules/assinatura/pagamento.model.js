@@ -1,12 +1,13 @@
 import mongoose from 'mongoose'
 
-// Pagamento avulso (hoje só Pix): cada um vale um período de acesso, sem renovação automática.
+// Registro de cada pagamento real recebido: Pix (avulso, vale um período de acesso) e cartão (cobrança
+// recorrente aprovada pelo Mercado Pago). É a base para a receita somada no painel do super_admin.
 const pagamentoSchema = new mongoose.Schema({
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
     assinaturaId: { type: mongoose.Schema.Types.ObjectId, ref: 'assinaturas', required: true },
     planoId: { type: mongoose.Schema.Types.ObjectId, ref: 'planos', required: true },
 
-    metodo: { type: String, enum: ['pix'], default: 'pix' },
+    metodo: { type: String, enum: ['pix', 'recorrente'], default: 'pix' },
     mercadoPagoPaymentId: { type: String, required: true, index: true },
     status: {
         type: String,

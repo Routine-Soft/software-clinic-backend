@@ -1,4 +1,5 @@
 import { UserController } from './user.controller.js'
+import { ClinicaAdminController } from './clinica-admin.controller.js'
 import { authenticate, authorize } from '../shared/middlewares/auth.middleware.js'
 
 export async function userRoutes(fastify) {
@@ -17,6 +18,18 @@ export async function userRoutes(fastify) {
             {
                 preHandler: authorize(['super_admin'])
             }, UserController.getAllUsers)
+
+        // Painel do super_admin: gestão das clínicas (cada uma é um usuário "admin") e suas assinaturas.
+        const soSuperAdmin = { preHandler: authorize(['super_admin']) }
+        fastify.get('/users/admins/resumo', soSuperAdmin, ClinicaAdminController.resumo)
+        fastify.get('/users/admins/receita', soSuperAdmin, ClinicaAdminController.receita)
+        fastify.get('/users/admins', soSuperAdmin, ClinicaAdminController.listar)
+        fastify.post('/users/admins', soSuperAdmin, ClinicaAdminController.criar)
+        fastify.patch('/users/admins/:id', soSuperAdmin, ClinicaAdminController.editar)
+        fastify.delete('/users/admins/:id', soSuperAdmin, ClinicaAdminController.apagar)
+        fastify.patch('/users/admins/:id/plano', soSuperAdmin, ClinicaAdminController.trocarPlano)
+        fastify.patch('/users/admins/:id/estender-teste', soSuperAdmin, ClinicaAdminController.estenderTeste)
+        fastify.patch('/users/admins/:id/acesso', soSuperAdmin, ClinicaAdminController.definirRevogacao)
         fastify.get('/users/tenant',
             {
                 preHandler: authorize(['admin', 'super_admin'])
