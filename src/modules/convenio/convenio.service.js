@@ -1,4 +1,5 @@
 import ConvenioModel from './convenio.model.js'
+import ServicoModel from '../servico/servico.model.js'
 import { createConvenioDTO, updateConvenioDTO } from './convenio.dto.js'
 import AppError from '../../errors/AppError.js'
 
@@ -47,6 +48,8 @@ export const ConvenioService = {
         if (!convenio) {
             throw new AppError('Convênio não encontrado', 404)
         }
+        // O preço e a comissão desse convênio nos serviços deixam de existir junto com ele.
+        await ServicoModel.updateMany({ tenantId }, { $pull: { tabelaConvenios: { convenioId: convenio._id } } })
         return null
     },
 }

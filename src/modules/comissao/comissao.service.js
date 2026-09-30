@@ -76,6 +76,7 @@ export const ComissaoService = {
         const agendas = await AgendaModel.find({ tenantId, profissionalId: profissional._id, ...PENDENTE })
             .populate('pacienteId', 'nome')
             .populate('servicoId', 'nome')
+            .populate('convenioId', 'nome')
             .sort({ data: 1, horaInicio: 1 })
 
         return agendas.map((agenda) => ({
@@ -86,6 +87,8 @@ export const ComissaoService = {
             servico: agenda.servicoId?.nome ?? null,
             valorAtendimento: agenda.financeiro?.valor ?? 0,
             comissao: agenda.comissao.valor,
+            comissaoPercentual: agenda.comissao.percentual ?? null,
+            convenio: agenda.convenioId?.nome ?? null,
             parteClinica: (agenda.financeiro?.valor ?? 0) - agenda.comissao.valor,
         }))
     },
@@ -162,6 +165,7 @@ export const ComissaoService = {
             AgendaModel.find({ tenantId, profissionalId: profissional._id, status: 'realizado', data: { $gte: desde, $lte: ate } })
                 .populate('pacienteId', 'nome')
                 .populate('servicoId', 'nome')
+                .populate('convenioId', 'nome')
                 .sort({ data: -1, horaInicio: -1 }),
             ComissaoPagamentoModel.find({ tenantId, profissionalId: profissional._id }).sort({ createdAt: -1 }).limit(5),
         ])
@@ -173,6 +177,8 @@ export const ComissaoService = {
             paciente: agenda.pacienteId?.nome ?? null,
             servico: agenda.servicoId?.nome ?? null,
             comissao: agenda.comissao?.valor ?? 0,
+            comissaoPercentual: agenda.comissao?.percentual ?? null,
+            convenio: agenda.convenioId?.nome ?? null,
             paga: !!agenda.comissao?.pagamentoId,
         }))
 

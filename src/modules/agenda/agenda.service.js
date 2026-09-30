@@ -3,6 +3,7 @@ import AgendaModel from './agenda.model.js'
 import ProfissionalModel from '../profissional/profissional.model.js'
 import { createAgendaDTO, updateAgendaDTO } from './agenda.dto.js'
 import { hojeDiaPuro } from '../shared/utils/dia-puro.js'
+import { regraDoServico, calcularComissao } from '../servico/servico.regras.js'
 import AppError from '../../errors/AppError.js'
 
 const COMISSAO_PAGA = 'A comissão deste atendimento já foi paga ao profissional'
@@ -93,15 +94,16 @@ export const AgendaService = {
     async updateAgenda(id, tenantId, body) {
         const agendaDTO = updateAgendaDTO(body)
 
-        // A comissão de um atendimento realizado pertence ao profissional e ao serviço dele; trocar um dos dois
-        // deixaria a comissão no nome errado.
+        // A comissão de um atendimento realizado foi calculada com o profissional, o serviço, o convênio e o valor
+        // dele; trocar qualquer um deixaria a comissão errada.
         const atual = await AgendaModel.findOne({ _id: id, tenantId })
         if (!atual) {
             throw new AppError('Agendamento não encontrado', 404)
         }
-        const trocaComissao = ['profissionalId', 'servicoId'].some((campo) => campo in agendaDTO && String(agendaDTO[campo]) !== String(atual[campo]))
-        if (atual.status === 'realizado' && trocaComissao) {
-            throw new AppError('Desmarque o atendimento como realizado antes de trocar o profissional ou o serviço', 409)
+        const trocaRegra = ['profissionalId', 'servicoId', 'convenioId'].some((campo) => campo in agendaDTO && String(agendaDTO[campo] ?? null) !== String(atual[campo] ?? null))
+        const trocaValor = 'financeiro' in agendaDTO && Number(agendaDTO.financeiro?.valor) !== Number(atual.financeiro?.valor)
+        if (atual.status === 'realizado' && (trocaRegra || trocaValor)) {
+            throw new AppError('Desmarque o atendimento como realizado antes de trocar o profissional, o serviço, o convênio ou o valor', 409)
         }
 
         const agenda = await AgendaModel.findOneAndUpdate(
@@ -144,7 +146,12 @@ export const AgendaService = {
             if (agenda.status !== 'realizado') {
                 agenda.status = 'realizado'
                 agenda.realizadoEm = new Date()
-                agenda.comissao = { valor: agenda.servicoId?.comissao ?? 0, pagamentoId: null }
+                const regra = regraDoServico(agenda.servicoId, agenda.convenioId)
+                agenda.comissao = {
+                    valor: calcularComissao(regra, agenda.financeiro?.valor),
+                    percentual: regra.comissaoTipo === 'percentual' ? regra.comissao : null,
+                    pagamentoId: null,
+                }
             }
         } else if (agenda.status === 'realizado') {
             if (agenda.comissao?.pagamentoId) {
@@ -152,7 +159,7 @@ export const AgendaService = {
             }
             agenda.status = 'aguardando'
             agenda.realizadoEm = null
-            agenda.comissao = { valor: 0, pagamentoId: null }
+            agenda.comissao = { valor: 0, percentual: null, pagamentoId: null }
         }
 
         await agenda.save()
@@ -170,7 +177,7 @@ export const AgendaService = {
 
         agenda.status = 'cancelado'
         agenda.realizadoEm = null
-        agenda.comissao = { valor: 0, pagamentoId: null }
+        agenda.comissao = { valor: 0, percentual: null, pagamentoId: null }
         await agenda.save()
         return agenda
     },

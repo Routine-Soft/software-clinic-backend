@@ -1,5 +1,5 @@
 import { ConvenioController } from './convenio.controller.js'
-import { authenticate } from '../shared/middlewares/auth.middleware.js'
+import { authenticate, authorize } from '../shared/middlewares/auth.middleware.js'
 import { exigirAssinaturaAtiva } from '../shared/middlewares/assinatura.middleware.js'
 
 export async function convenioRoutes(fastify) {
@@ -11,8 +11,10 @@ export async function convenioRoutes(fastify) {
 
         fastify.get('/convenios', ConvenioController.getAllConvenios)
         fastify.get('/convenios/:id', ConvenioController.getConvenioById)
-        fastify.post('/convenios', ConvenioController.createConvenio)
-        fastify.patch('/convenios/:id', ConvenioController.updateConvenio)
-        fastify.delete('/convenios/:id', ConvenioController.deleteConvenio)
+        // Todos da clínica leem; só o admin altera (os convênios definem preços e comissões nos serviços).
+        const soAdmin = { preHandler: authorize(['admin', 'super_admin']) }
+        fastify.post('/convenios', soAdmin, ConvenioController.createConvenio)
+        fastify.patch('/convenios/:id', soAdmin, ConvenioController.updateConvenio)
+        fastify.delete('/convenios/:id', soAdmin, ConvenioController.deleteConvenio)
     })
 }

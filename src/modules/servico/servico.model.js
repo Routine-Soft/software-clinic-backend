@@ -8,9 +8,22 @@ const servicoSchema = new mongoose.Schema({
         required: function () { return this.tipo === 'pacote' },
         default: null,
     },
+    // Preço e comissão do atendimento particular. A comissão é o que o profissional recebe por atendimento
+    // realizado: um valor em reais ('valor') ou um percentual do valor cobrado ('percentual').
     preco: { type: Number, required: true },
-    // Valor em dinheiro (não percentual) pago ao profissional por atendimento realizado; o resto do preço fica com a clínica.
     comissao: { type: Number, default: 0, min: 0 },
+    comissaoTipo: { type: String, enum: ['valor', 'percentual'], default: 'valor' },
+
+    // Cada convênio pode ter preço e comissão próprios para este serviço. Convênio sem linha aqui usa a regra particular.
+    tabelaConvenios: {
+        type: [new mongoose.Schema({
+            convenioId: { type: mongoose.Schema.Types.ObjectId, ref: 'convenios', required: true },
+            preco: { type: Number, required: true, min: 0 },
+            comissao: { type: Number, default: 0, min: 0 },
+            comissaoTipo: { type: String, enum: ['valor', 'percentual'], default: 'valor' },
+        }, { _id: false })],
+        default: [],
+    },
 
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
 
