@@ -5,7 +5,7 @@ const empresaSchema = new mongoose.Schema({
     nomeFantasia: { type: String, default: '' },
     cnpj: { type: String, required: true },
     telefone: { type: String, default: '' },
-    email: { type: String, default: '' },
+    email: { type: String, default: '', trim: true, lowercase: true },
     endereco: { type: String, default: '' },
     setor: { type: String, default: '' },
 

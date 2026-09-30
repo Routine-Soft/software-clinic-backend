@@ -1,44 +1,45 @@
 import { ProntuarioService } from './prontuario.service.js'
 
+const contexto = (req) => ({ usuario: req.user, ip: req.ip })
+
 export const ProntuarioController = {
+    async acesso(req, reply) {
+        return reply.send({ data: await ProntuarioService.acesso(contexto(req)) })
+    },
+
     async getAllProntuarios(req, reply) {
-        const { tenantId } = req.user
         const { pacienteId } = req.query
-        const prontuarios = await ProntuarioService.findAll(tenantId, { pacienteId })
-        return reply.send({ data: prontuarios })
+        const { prontuarios, completo, perfilClinico } = await ProntuarioService.findAll(contexto(req), { pacienteId })
+        return reply.send({ data: prontuarios, completo, perfilClinico })
     },
 
     async getProntuarioById(req, reply) {
-        const { id } = req.params
-        const { tenantId } = req.user
-        const prontuario = await ProntuarioService.findById(id, tenantId)
+        const prontuario = await ProntuarioService.findById(contexto(req), req.params.id)
         return reply.send({ data: prontuario })
     },
 
     async createProntuario(req, reply) {
-        const { tenantId } = req.user
-        const prontuario = await ProntuarioService.createProntuario(req.body, tenantId)
-        return reply.code(201).send({ data: prontuario, message: 'Prontuário registrado com sucesso' })
+        const prontuario = await ProntuarioService.createProntuario(contexto(req), req.body)
+        return reply.code(201).send({ data: prontuario, message: 'Atendimento iniciado' })
     },
 
     async updateProntuario(req, reply) {
-        const { id } = req.params
-        const { tenantId } = req.user
-        const prontuario = await ProntuarioService.updateProntuario(id, tenantId, req.body)
-        return reply.send({ data: prontuario, message: 'Prontuário atualizado com sucesso' })
+        const prontuario = await ProntuarioService.updateProntuario(contexto(req), req.params.id, req.body)
+        return reply.send({ data: prontuario, message: 'Rascunho salvo' })
     },
 
     async finalizarAtendimento(req, reply) {
-        const { id } = req.params
-        const { tenantId } = req.user
-        const prontuario = await ProntuarioService.finalizarAtendimento(id, tenantId, req.body)
+        const prontuario = await ProntuarioService.finalizarAtendimento(contexto(req), req.params.id, req.body)
         return reply.send({ data: prontuario, message: 'Atendimento finalizado com sucesso' })
     },
 
-    async deleteProntuario(req, reply) {
-        const { id } = req.params
-        const { tenantId } = req.user
-        await ProntuarioService.deleteProntuario(id, tenantId)
-        return reply.send({ data: null, message: 'Prontuário removido com sucesso' })
+    async adicionarAdendo(req, reply) {
+        const prontuario = await ProntuarioService.adicionarAdendo(contexto(req), req.params.id, req.body)
+        return reply.code(201).send({ data: prontuario, message: 'Adendo registrado' })
+    },
+
+    async atualizarPerfilClinico(req, reply) {
+        const perfil = await ProntuarioService.atualizarPerfilClinico(contexto(req), req.params.pacienteId, req.body)
+        return reply.send({ data: perfil, message: 'Perfil clínico salvo' })
     },
 }

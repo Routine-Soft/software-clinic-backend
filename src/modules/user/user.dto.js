@@ -54,7 +54,7 @@ export function toUserResponseDto(user) {
 
 export function loginUserDTO(body) {
     return {
-        email: body.email,
+        email: String(body.email ?? '').replace(/\s+/g, '').toLowerCase(),
         password: body.password,
     }
 }

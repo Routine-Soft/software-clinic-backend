@@ -2,7 +2,14 @@ import mongoose from 'mongoose'
 
 const userSchema = new mongoose.Schema({
     nomeCompleto: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    // Sempre sem espaços e em minúsculas, para o login não depender de como a pessoa digitou.
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+        lowercase: true,
+        set: (valor) => (typeof valor === 'string' ? valor.replace(/\s+/g, '') : valor),
+    },
     // Sem senha quando a conta foi criada pelo Google; a pessoa pode definir uma depois em "Minha conta".
     password: { type: String, default: null },
     googleId: { type: String, default: null },

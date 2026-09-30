@@ -14,6 +14,13 @@ const sinaisVitaisSchema = new mongoose.Schema({
     temperatura: { type: Number, default: null },
 }, { _id: false })
 
+// Correção ou complemento de um atendimento já finalizado: o texto original fica intacto.
+const adendoSchema = new mongoose.Schema({
+    texto: { type: String, required: true },
+    profissionalId: { type: mongoose.Schema.Types.ObjectId, ref: 'profissionais', required: true },
+    criadoEm: { type: Date, default: Date.now },
+}, { _id: true })
+
 const prontuarioSchema = new mongoose.Schema({
     pacienteId: { type: mongoose.Schema.Types.ObjectId, ref: 'pacientes', required: true },
     profissionalId: { type: mongoose.Schema.Types.ObjectId, ref: 'profissionais', required: true },
@@ -34,6 +41,7 @@ const prontuarioSchema = new mongoose.Schema({
 
     atendimentoIniciadoEm: { type: Date, default: null },
     atendimentoFinalizadoEm: { type: Date, default: null },
+    adendos: { type: [adendoSchema], default: [] },
 
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
 

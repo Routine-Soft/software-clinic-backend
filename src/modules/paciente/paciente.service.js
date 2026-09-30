@@ -1,5 +1,6 @@
 import PacienteModel from './paciente.model.js'
 import { createPacienteDTO, updatePacienteDTO } from './paciente.dto.js'
+import ProntuarioModel from '../prontuario/prontuario.model.js'
 import AppError from '../../errors/AppError.js'
 
 export const PacienteService = {
@@ -43,6 +44,10 @@ export const PacienteService = {
     },
 
     async deletePaciente(id, tenantId) {
+        // O prontuário deve ser guardado por no mínimo 20 anos (Lei 13.787/2018): paciente com atendimento fica.
+        if (await ProntuarioModel.exists({ tenantId, pacienteId: id })) {
+            throw new AppError('Este paciente tem prontuário registrado e não pode ser excluído: o prontuário deve ser guardado por no mínimo 20 anos.', 409)
+        }
         const paciente = await PacienteModel.findOneAndDelete({ _id: id, tenantId })
         if (!paciente) {
             throw new AppError('Paciente não encontrado', 404)

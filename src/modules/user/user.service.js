@@ -17,8 +17,6 @@ async function emitirSessao(user) {
     return { accessToken, refreshToken, user: user.toJSON() }
 }
 
-const escaparRegex = (texto) => texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
 export const UserService = {
     async findAll() {
         return await UserModel.find()
@@ -224,7 +222,7 @@ export const UserService = {
         const { credential, cadastro } = body ?? {}
         const google = await GoogleAuth.verificar(credential)
 
-        const user = await UserModel.findOne({ email: new RegExp(`^${escaparRegex(google.email)}$`, 'i') })
+        const user = await UserModel.findOne({ email: google.email })
         if (user) {
             if (user.googleId && user.googleId !== google.googleId) {
                 throw new AppError('Este e-mail já está ligado a outra conta do Google', 409)

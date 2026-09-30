@@ -1,78 +1,191 @@
+import mongoose from 'mongoose'
 import ProntuarioModel from './prontuario.model.js'
+import PacienteModel, { CAMPOS_PERFIL_CLINICO } from '../paciente/paciente.model.js'
+import AgendaModel from '../agenda/agenda.model.js'
 import { createProntuarioDTO, updateProntuarioDTO } from './prontuario.dto.js'
+import { ProntuarioAcesso } from './prontuario.acesso.js'
 import AppError from '../../errors/AppError.js'
 
+// Todas as funções recebem o contexto { usuario, ip } da requisição; o tenant vem do cadastro do profissional.
+function popular(query) {
+    return query
+        .populate('pacienteId', 'nome')
+        .populate('profissionalId', 'nome')
+        .populate('convenioId', 'nome')
+        .populate('adendos.profissionalId', 'nome')
+}
+
+async function carregar(id, tenantId) {
+    if (!mongoose.isValidObjectId(id)) throw new AppError('Prontuário não encontrado', 404)
+    const prontuario = await ProntuarioModel.findOne({ _id: id, tenantId })
+    if (!prontuario) throw new AppError('Prontuário não encontrado', 404)
+    return prontuario
+}
+
+async function contextoDe(contexto) {
+    const profissional = await ProntuarioAcesso.exigirProfissional(contexto.usuario)
+    return { ...contexto, profissional }
+}
+
 export const ProntuarioService = {
-    async findAll(tenantId, filtros = {}) {
-        const query = { tenantId }
-
-        if (filtros.pacienteId) {
-            query.pacienteId = filtros.pacienteId
-        }
-
-        return await ProntuarioModel.find(query)
-            .populate('pacienteId')
-            .populate('profissionalId')
-            .populate('convenioId')
-            .sort({ createdAt: -1 })
+    // Diz ao site se o login pode abrir prontuários, sem erro: a agenda e a home usam para decidir o que mostrar.
+    async acesso(contexto) {
+        const profissional = await ProntuarioAcesso.profissionalDoUsuario(contexto.usuario)
+        return { profissional: profissional ? { _id: profissional._id, nome: profissional.nome } : null }
     },
 
-    async findById(id, tenantId) {
-        const prontuario = await ProntuarioModel.findOne({ _id: id, tenantId })
-            .populate('pacienteId')
-            .populate('profissionalId')
-            .populate('convenioId')
+    // Com pacienteId: os atendimentos que o profissional pode ler, mais o perfil clínico, e registra a leitura.
+    // Sem pacienteId: só um resumo (datas e situação, sem texto clínico) para as listas e contadores.
+    async findAll(contextoRequisicao, filtros = {}) {
+        const contexto = await contextoDe(contextoRequisicao)
+        const { profissional } = contexto
+        const tenantId = profissional.tenantId
 
-        if (!prontuario) {
-            throw new AppError('Prontuário não encontrado', 404)
+        if (!filtros.pacienteId) {
+            const pacientesAtendidos = await AgendaModel.distinct('pacienteId', {
+                tenantId,
+                profissionalId: profissional._id,
+                status: { $ne: 'cancelado' },
+            })
+            const resumo = await ProntuarioModel.find({
+                tenantId,
+                $or: [{ profissionalId: profissional._id }, { pacienteId: { $in: pacientesAtendidos } }],
+            })
+                .select('pacienteId profissionalId createdAt atendimentoIniciadoEm atendimentoFinalizadoEm')
+                .sort({ createdAt: -1 })
+            return { prontuarios: resumo }
         }
-        return prontuario
+
+        if (!mongoose.isValidObjectId(filtros.pacienteId)) throw new AppError('Paciente não encontrado', 404)
+        const paciente = await PacienteModel.findOne({ _id: filtros.pacienteId, tenantId })
+            .select(CAMPOS_PERFIL_CLINICO.map((campo) => `+${campo}`).join(' '))
+        if (!paciente) throw new AppError('Paciente não encontrado', 404)
+
+        const completo = await ProntuarioAcesso.atendeOPaciente(profissional, paciente._id)
+        const filtro = { tenantId, pacienteId: paciente._id }
+        if (!completo) filtro.profissionalId = profissional._id
+
+        const prontuarios = await popular(ProntuarioModel.find(filtro)).sort({ createdAt: -1 })
+        const podeVerPerfil = completo || prontuarios.length > 0
+        const perfilClinico = podeVerPerfil
+            ? Object.fromEntries(CAMPOS_PERFIL_CLINICO.map((campo) => [campo, paciente[campo] ?? '']))
+            : null
+
+        await ProntuarioAcesso.registrar(contexto, 'leitura', prontuarios.map((p) => ({ pacienteId: paciente._id, prontuarioId: p._id })))
+        if (podeVerPerfil) await ProntuarioAcesso.registrar(contexto, 'perfil_leitura', { pacienteId: paciente._id })
+
+        return { prontuarios, completo, perfilClinico }
     },
 
-    async createProntuario(body, tenantId) {
-        const prontuarioDTO = createProntuarioDTO(body)
-        return await ProntuarioModel.create({
-            ...prontuarioDTO,
+    async findById(contextoRequisicao, id) {
+        const contexto = await contextoDe(contextoRequisicao)
+        const prontuario = await carregar(id, contexto.profissional.tenantId)
+        if (!(await ProntuarioAcesso.podeLer(contexto.profissional, prontuario))) {
+            throw new AppError('Você não atende este paciente, então não pode abrir este prontuário.', 403)
+        }
+        await ProntuarioAcesso.registrar(contexto, 'leitura', { pacienteId: prontuario.pacienteId, prontuarioId: prontuario._id })
+        return await popular(ProntuarioModel.findById(prontuario._id))
+    },
+
+    // O autor é sempre o profissional logado; o que vier no corpo como profissionalId é ignorado.
+    async createProntuario(contextoRequisicao, body) {
+        const contexto = await contextoDe(contextoRequisicao)
+        const { profissional } = contexto
+        const tenantId = profissional.tenantId
+        const dto = createProntuarioDTO(body)
+
+        if (!mongoose.isValidObjectId(dto.pacienteId) || !(await PacienteModel.exists({ _id: dto.pacienteId, tenantId }))) {
+            throw new AppError('Paciente não encontrado', 404)
+        }
+        if (dto.agendamentoId && !(await AgendaModel.exists({ _id: dto.agendamentoId, tenantId, pacienteId: dto.pacienteId }))) {
+            throw new AppError('Agendamento não encontrado para este paciente', 404)
+        }
+        const emAndamento = await ProntuarioModel.exists({
+            tenantId, pacienteId: dto.pacienteId, profissionalId: profissional._id, atendimentoFinalizadoEm: null,
+        })
+        if (emAndamento) {
+            throw new AppError('Você já tem um atendimento em andamento com este paciente. Finalize-o antes de iniciar outro.', 409)
+        }
+
+        const prontuario = await ProntuarioModel.create({
+            ...dto,
+            profissionalId: profissional._id,
             tenantId,
             atendimentoIniciadoEm: new Date(),
         })
+        await ProntuarioAcesso.registrar(contexto, 'criacao', { pacienteId: prontuario.pacienteId, prontuarioId: prontuario._id })
+        return await popular(ProntuarioModel.findById(prontuario._id))
     },
 
-    async updateProntuario(id, tenantId, body) {
-        const prontuarioDTO = updateProntuarioDTO(body)
-        const prontuario = await ProntuarioModel.findOneAndUpdate(
-            { _id: id, tenantId },
-            { $set: prontuarioDTO },
-            { new: true, runValidators: true }
+    async updateProntuario(contextoRequisicao, id, body) {
+        return await this.salvarAtendimento(contextoRequisicao, id, body, false)
+    },
+
+    async finalizarAtendimento(contextoRequisicao, id, body) {
+        return await this.salvarAtendimento(contextoRequisicao, id, body, true)
+    },
+
+    async salvarAtendimento(contextoRequisicao, id, body, finalizar) {
+        const contexto = await contextoDe(contextoRequisicao)
+        const prontuario = await carregar(id, contexto.profissional.tenantId)
+        ProntuarioAcesso.exigirAutor(contexto.profissional, prontuario, 'Só o profissional que registrou o atendimento pode alterá-lo.')
+
+        const alteracoes = updateProntuarioDTO(body)
+        if (finalizar) alteracoes.atendimentoFinalizadoEm = new Date()
+
+        // O filtro repete "não finalizado": duas abas salvando ao mesmo tempo não reabrem um atendimento fechado.
+        const salvo = await ProntuarioModel.findOneAndUpdate(
+            { _id: prontuario._id, atendimentoFinalizadoEm: null },
+            { $set: alteracoes },
+            { returnDocument: 'after', runValidators: true },
         )
-
-        if (!prontuario) {
-            throw new AppError('Prontuário não encontrado', 404)
+        if (!salvo) {
+            throw new AppError('Este atendimento já foi finalizado e não pode mais ser alterado. Para corrigir ou complementar, registre um adendo.', 409)
         }
 
-        return prontuario
+        await ProntuarioAcesso.registrar(contexto, finalizar ? 'finalizacao' : 'edicao', { pacienteId: salvo.pacienteId, prontuarioId: salvo._id })
+        return await popular(ProntuarioModel.findById(salvo._id))
     },
 
-    async finalizarAtendimento(id, tenantId, body) {
-        const prontuarioDTO = updateProntuarioDTO(body)
-        const prontuario = await ProntuarioModel.findOneAndUpdate(
-            { _id: id, tenantId },
-            { $set: { ...prontuarioDTO, atendimentoFinalizadoEm: new Date() } },
-            { new: true, runValidators: true }
+    async adicionarAdendo(contextoRequisicao, id, body) {
+        const contexto = await contextoDe(contextoRequisicao)
+        const prontuario = await carregar(id, contexto.profissional.tenantId)
+        ProntuarioAcesso.exigirAutor(contexto.profissional, prontuario, 'Só o profissional que registrou o atendimento pode acrescentar um adendo.')
+        if (!prontuario.atendimentoFinalizadoEm) {
+            throw new AppError('O atendimento ainda está em andamento: edite o texto diretamente.', 409)
+        }
+
+        const texto = String(body?.texto ?? '').trim()
+        if (!texto) throw new AppError('Escreva o texto do adendo', 400)
+        if (texto.length > 5000) throw new AppError('O adendo pode ter no máximo 5000 caracteres', 400)
+
+        await ProntuarioModel.updateOne(
+            { _id: prontuario._id },
+            { $push: { adendos: { texto, profissionalId: contexto.profissional._id, criadoEm: new Date() } } },
         )
-
-        if (!prontuario) {
-            throw new AppError('Prontuário não encontrado', 404)
-        }
-
-        return prontuario
+        await ProntuarioAcesso.registrar(contexto, 'adendo', { pacienteId: prontuario.pacienteId, prontuarioId: prontuario._id })
+        return await popular(ProntuarioModel.findById(prontuario._id))
     },
 
-    async deleteProntuario(id, tenantId) {
-        const prontuario = await ProntuarioModel.findOneAndDelete({ _id: id, tenantId })
-        if (!prontuario) {
-            throw new AppError('Prontuário não encontrado', 404)
+    async atualizarPerfilClinico(contextoRequisicao, pacienteId, body) {
+        const contexto = await contextoDe(contextoRequisicao)
+        const tenantId = contexto.profissional.tenantId
+        if (!mongoose.isValidObjectId(pacienteId) || !(await PacienteModel.exists({ _id: pacienteId, tenantId }))) {
+            throw new AppError('Paciente não encontrado', 404)
         }
-        return null
+        if (!(await ProntuarioAcesso.podeVerPerfil(contexto.profissional, pacienteId))) {
+            throw new AppError('Você não atende este paciente, então não pode alterar o perfil clínico dele.', 403)
+        }
+
+        const alteracoes = Object.fromEntries(
+            CAMPOS_PERFIL_CLINICO.filter((campo) => campo in (body ?? {})).map((campo) => [campo, String(body[campo] ?? '')]),
+        )
+        const paciente = await PacienteModel.findOneAndUpdate(
+            { _id: pacienteId, tenantId },
+            { $set: alteracoes },
+            { returnDocument: 'after', projection: CAMPOS_PERFIL_CLINICO.join(' ') },
+        )
+        await ProntuarioAcesso.registrar(contexto, 'perfil_edicao', { pacienteId })
+        return Object.fromEntries(CAMPOS_PERFIL_CLINICO.map((campo) => [campo, paciente[campo] ?? '']))
     },
 }
