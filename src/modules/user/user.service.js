@@ -3,9 +3,21 @@ import jwt from 'jsonwebtoken'
 import mongoose from 'mongoose'
 import UserModel from './user.model.js'
 import { AssinaturaService } from '../assinatura/assinatura.service.js'
+import { GoogleAuth } from './google-auth.js'
 
 import { createUserDTO, updateUserDTO, updateMeDTO, loginUserDTO } from './user.dto.js'
 import AppError from '../../errors/AppError.js'
+
+async function emitirSessao(user) {
+    const payload = { id: user._id, tenantId: user.tenantId, role: user.role }
+    const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' })
+    const refreshToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' })
+    user.tokenRefresh = refreshToken
+    await user.save()
+    return { accessToken, refreshToken, user: user.toJSON() }
+}
+
+const escaparRegex = (texto) => texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 export const UserService = {
     async findAll() {
@@ -116,8 +128,8 @@ export const UserService = {
 
     async updateMyPassword(id, body) {
         const { currentPassword, newPassword } = body
-        if (!currentPassword || !newPassword) {
-            throw new AppError('Informe a senha atual e a nova senha', 400)
+        if (!newPassword) {
+            throw new AppError('Informe a nova senha', 400)
         }
         if (newPassword.length < 6) {
             throw new AppError('A nova senha deve ter ao menos 6 caracteres', 400)
@@ -128,9 +140,12 @@ export const UserService = {
             throw new AppError('Usuário não encontrado', 404)
         }
 
-        const valid = await argon2.verify(user.password, currentPassword)
-        if (!valid) {
-            throw new AppError('Senha atual incorreta', 400)
+        // Conta criada pelo Google ainda não tem senha: a primeira é definida sem pedir a atual.
+        if (user.password) {
+            const valid = await argon2.verify(user.password, currentPassword || '')
+            if (!valid) {
+                throw new AppError('Senha atual incorreta', 400)
+            }
         }
 
         user.password = await argon2.hash(newPassword)
@@ -192,16 +207,66 @@ export const UserService = {
         if (!user) {
             throw new AppError('Email ou senha incorretos', 401)
         }
-        const valid = await argon2.verify(user.password, password)
+        if (!user.password) {
+            throw new AppError('Esta conta entra pelo Google. Use o botão "Continuar com o Google".', 401)
+        }
+        const valid = await argon2.verify(user.password, password || '')
         if (!valid) {
             throw new AppError('Email ou senha incorretos', 401)
         }
-        const payload = { id: user._id, tenantId: user.tenantId, role: user.role }
-        const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' })
-        const refreshToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' })
-        user.tokenRefresh = refreshToken
-        await user.save()
-        return { accessToken, refreshToken, user: user.toJSON() }
+        return await emitirSessao(user)
+    },
+
+    // Login e cadastro pelo Google. E-mail já cadastrado: entra na conta (admin, profissional ou recepção).
+    // E-mail novo sem `cadastro`: devolve { novoCadastro } para o site pedir os dados da clínica;
+    // com `cadastro`: cria a clínica, com o período de teste, e já entra.
+    async entrarComGoogle(body) {
+        const { credential, cadastro } = body ?? {}
+        const google = await GoogleAuth.verificar(credential)
+
+        const user = await UserModel.findOne({ email: new RegExp(`^${escaparRegex(google.email)}$`, 'i') })
+        if (user) {
+            if (user.googleId && user.googleId !== google.googleId) {
+                throw new AppError('Este e-mail já está ligado a outra conta do Google', 409)
+            }
+            user.googleId = google.googleId
+            return await emitirSessao(user)
+        }
+
+        if (!cadastro) {
+            return { novoCadastro: true, nomeCompleto: google.nome, email: google.email }
+        }
+
+        const nomeCompleto = String(cadastro.nomeCompleto ?? '').trim() || google.nome
+        const nomeEmpresa = String(cadastro.nomeEmpresa ?? '').trim()
+        const telefone = String(cadastro.telefone ?? '').trim()
+        if (!nomeEmpresa || !telefone) {
+            throw new AppError('Informe o nome da clínica e o telefone', 400)
+        }
+
+        const newId = new mongoose.Types.ObjectId()
+        let novo
+        try {
+            novo = await UserModel.create({
+                _id: newId,
+                tenantId: newId,
+                role: 'admin',
+                nomeCompleto,
+                email: google.email,
+                googleId: google.googleId,
+                password: null,
+                telefone,
+                nomeEmpresa,
+                cnpj: String(cadastro.cnpj ?? '').trim() || null,
+            })
+        } catch (error) {
+            if (error.code === 11000) {
+                throw new AppError('Já existe uma conta com este e-mail. Entre pela tela de login.', 409)
+            }
+            throw error
+        }
+        await AssinaturaService.criarAssinaturaTrial(newId)
+        return await emitirSessao(novo)
     },
 
     async logoutUser(id) {

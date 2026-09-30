@@ -7,6 +7,7 @@ export async function userRoutes(fastify) {
     // rotas públicas
     fastify.post('/users', UserController.createUser)
     fastify.post('/users/login', UserController.loginUser)
+    fastify.post('/users/google', UserController.entrarComGoogle)
     fastify.post('/users/refresh', UserController.refreshToken)
 
     fastify.register(async function (fastify) {

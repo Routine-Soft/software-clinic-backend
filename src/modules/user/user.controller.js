@@ -84,6 +84,11 @@ export const UserController = {
         return reply.send({ data: result, message: 'Login realizado com sucesso' })
     },
 
+    async entrarComGoogle(req, reply) {
+        const result = await UserService.entrarComGoogle(req.body)
+        return reply.send({ data: result, message: result.novoCadastro ? 'Complete o cadastro da clínica' : 'Login realizado com sucesso' })
+    },
+
     async logoutUser(req, reply) {
         await UserService.logoutUser(req.user.id)
         return reply.send({ data: null, message: 'Logout realizado com sucesso' })

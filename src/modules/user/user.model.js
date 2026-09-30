@@ -3,7 +3,9 @@ import mongoose from 'mongoose'
 const userSchema = new mongoose.Schema({
     nomeCompleto: { type: String, required: true },
     email: { type: String, required: true, unique: true },
+    // Sem senha quando a conta foi criada pelo Google; a pessoa pode definir uma depois em "Minha conta".
     password: { type: String, default: null },
+    googleId: { type: String, default: null },
     telefone: { type: String, required: true },
     cnpj: { type: String, default: null },
     nomeEmpresa: { type: String, required: true },
@@ -27,7 +29,9 @@ const userSchema = new mongoose.Schema({
 
 userSchema.methods.toJSON = function () {
   const obj = this.toObject()
+  obj.temSenha = !!obj.password
   delete obj.password
+  delete obj.googleId
   delete obj.token
   delete obj.tokenRefresh
   delete obj.resetPasswordToken
