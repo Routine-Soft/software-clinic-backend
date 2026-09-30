@@ -8,8 +8,10 @@ import { GoogleAuth } from './google-auth.js'
 import { createUserDTO, updateUserDTO, updateMeDTO, loginUserDTO } from './user.dto.js'
 import AppError from '../../errors/AppError.js'
 
-async function emitirSessao(user) {
-    const payload = { id: user._id, tenantId: user.tenantId, role: user.role }
+// `via: 'google'` marca a sessão aberta pelo Google: ela pode trocar a senha sem informar a atual,
+// e é assim que quem esqueceu a senha recupera o acesso.
+async function emitirSessao(user, via = 'senha') {
+    const payload = { id: user._id, tenantId: user.tenantId, role: user.role, via }
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' })
     const refreshToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' })
     user.tokenRefresh = refreshToken
@@ -124,7 +126,7 @@ export const UserService = {
         return user
     },
 
-    async updateMyPassword(id, body) {
+    async updateMyPassword(id, body, via) {
         const { currentPassword, newPassword } = body
         if (!newPassword) {
             throw new AppError('Informe a nova senha', 400)
@@ -138,8 +140,9 @@ export const UserService = {
             throw new AppError('Usuário não encontrado', 404)
         }
 
-        // Conta criada pelo Google ainda não tem senha: a primeira é definida sem pedir a atual.
-        if (user.password) {
+        // Sem pedir a senha atual: conta criada pelo Google (ainda sem senha) ou sessão aberta pelo Google,
+        // que é o caminho de quem esqueceu a senha.
+        if (user.password && via !== 'google') {
             const valid = await argon2.verify(user.password, currentPassword || '')
             if (!valid) {
                 throw new AppError('Senha atual incorreta', 400)
@@ -228,7 +231,7 @@ export const UserService = {
                 throw new AppError('Este e-mail já está ligado a outra conta do Google', 409)
             }
             user.googleId = google.googleId
-            return await emitirSessao(user)
+            return await emitirSessao(user, 'google')
         }
 
         if (!cadastro) {
@@ -264,7 +267,7 @@ export const UserService = {
             throw error
         }
         await AssinaturaService.criarAssinaturaTrial(newId)
-        return await emitirSessao(novo)
+        return await emitirSessao(novo, 'google')
     },
 
     async logoutUser(id) {
@@ -297,7 +300,7 @@ export const UserService = {
         }
 
         const newAccessToken = jwt.sign(
-            { id: user._id, tenantId: user.tenantId, role: user.role },
+            { id: user._id, tenantId: user.tenantId, role: user.role, via: decoded.via ?? 'senha' },
             process.env.JWT_SECRET,
             { expiresIn: '30d' }
         )

@@ -41,6 +41,11 @@ export const ClinicaAdminController = {
         return reply.send({ data: comAcesso(assinatura), message: 'Plano atualizado com sucesso' })
     },
 
+    async redefinirSenha(req, reply) {
+        await ClinicaAdminService.redefinirSenha(req.params.id, req.body?.novaSenha)
+        return reply.send({ data: null, message: 'Senha redefinida. Passe a nova senha ao administrador da clínica.' })
+    },
+
     async estenderTeste(req, reply) {
         const assinatura = await ClinicaAdminService.estenderTeste(req.params.id)
         return reply.send({ data: comAcesso(assinatura), message: 'Teste estendido por mais 3 dias' })

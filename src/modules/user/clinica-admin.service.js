@@ -238,6 +238,20 @@ export const ClinicaAdminService = {
     // Dá mais 3 dias de teste à clínica, quantas vezes o super_admin quiser. Soma ao que ainda restar do
     // prazo atual (não desperdiça teste que ainda não acabou); se a assinatura já tem acesso liberado por
     // outro motivo (plano pago em dia), não há o que estender.
+    // O admin que esqueceu a senha (e não usa Google) pede ao suporte: o super admin define uma nova.
+    async redefinirSenha(id, novaSenha) {
+        if (typeof novaSenha !== 'string' || novaSenha.length < 6) {
+            throw new AppError('A nova senha deve ter ao menos 6 caracteres', 400)
+        }
+        const admin = mongoose.isValidObjectId(id) ? await UserModel.findOne({ _id: id, role: 'admin' }) : null
+        if (!admin) {
+            throw new AppError('Administrador não encontrado', 404)
+        }
+        admin.password = await argon2.hash(novaSenha)
+        await admin.save()
+        return null
+    },
+
     async estenderTeste(id) {
         const admin = await UserModel.findOne({ _id: id, role: 'admin' })
         if (!admin) {

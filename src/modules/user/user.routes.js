@@ -30,6 +30,7 @@ export async function userRoutes(fastify) {
         fastify.delete('/users/admins/:id', soSuperAdmin, ClinicaAdminController.apagar)
         fastify.patch('/users/admins/:id/plano', soSuperAdmin, ClinicaAdminController.trocarPlano)
         fastify.patch('/users/admins/:id/estender-teste', soSuperAdmin, ClinicaAdminController.estenderTeste)
+        fastify.patch('/users/admins/:id/senha', soSuperAdmin, ClinicaAdminController.redefinirSenha)
         fastify.patch('/users/admins/:id/acesso', soSuperAdmin, ClinicaAdminController.definirRevogacao)
         fastify.get('/users/tenant',
             {

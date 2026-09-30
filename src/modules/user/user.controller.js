@@ -52,7 +52,7 @@ export const UserController = {
     },
 
     async updateMyPassword(req, reply) {
-        await UserService.updateMyPassword(req.user.id, req.body)
+        await UserService.updateMyPassword(req.user.id, req.body, req.user.via)
         return reply.send({ data: null, message: 'Senha alterada com sucesso' })
     },
 
