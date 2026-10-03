@@ -4,14 +4,15 @@ import UserModel from '../user/user.model.js'
 import { createProfissionalDTO, updateProfissionalDTO } from './profissional.dto.js'
 import AppError from '../../errors/AppError.js'
 
-// O login vinculado precisa ser desta clínica (profissional ou o próprio admin) e só pode pertencer a um profissional.
+// O login vinculado precisa ser desta clínica (profissional, admin ou o super admin que também atende) e só pode
+// pertencer a um profissional.
 async function validarUsuarioVinculado(usuarioId, tenantId, profissionalId = null) {
     if (!usuarioId) return
     const usuario = mongoose.isValidObjectId(usuarioId)
-        ? await UserModel.findOne({ _id: usuarioId, tenantId, role: { $in: ['profissional', 'admin'] } })
+        ? await UserModel.findOne({ _id: usuarioId, tenantId, role: { $in: ['profissional', 'admin', 'super_admin'] } })
         : null
     if (!usuario) {
-        throw new AppError('Usuário não encontrado nesta clínica. Só é possível vincular usuários com função Profissional ou Administrador.', 400)
+        throw new AppError('Usuário não encontrado nesta clínica. Só é possível vincular usuários com função Profissional, Administrador ou Super admin.', 400)
     }
     const outro = await ProfissionalModel.findOne({ tenantId, usuarioId, ...(profissionalId ? { _id: { $ne: profissionalId } } : {}) })
     if (outro) {

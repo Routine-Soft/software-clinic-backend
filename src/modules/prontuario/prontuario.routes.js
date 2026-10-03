@@ -18,6 +18,7 @@ export async function prontuarioRoutes(fastify) {
         fastify.patch('/prontuarios/:id', ProntuarioController.updateProntuario)
         fastify.patch('/prontuarios/:id/finalizar', ProntuarioController.finalizarAtendimento)
         fastify.post('/prontuarios/:id/adendos', ProntuarioController.adicionarAdendo)
+        fastify.patch('/prontuarios/:id/compartilhamento', ProntuarioController.compartilhar)
         fastify.patch('/prontuarios/perfil/:pacienteId', ProntuarioController.atualizarPerfilClinico)
     })
 }

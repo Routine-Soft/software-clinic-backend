@@ -9,8 +9,8 @@ export const ProntuarioController = {
 
     async getAllProntuarios(req, reply) {
         const { pacienteId } = req.query
-        const { prontuarios, completo, perfilClinico } = await ProntuarioService.findAll(contexto(req), { pacienteId })
-        return reply.send({ data: prontuarios, completo, perfilClinico })
+        const { prontuarios, perfilClinico } = await ProntuarioService.findAll(contexto(req), { pacienteId })
+        return reply.send({ data: prontuarios, perfilClinico })
     },
 
     async getProntuarioById(req, reply) {
@@ -31,6 +31,11 @@ export const ProntuarioController = {
     async finalizarAtendimento(req, reply) {
         const prontuario = await ProntuarioService.finalizarAtendimento(contexto(req), req.params.id, req.body)
         return reply.send({ data: prontuario, message: 'Atendimento finalizado com sucesso' })
+    },
+
+    async compartilhar(req, reply) {
+        const prontuario = await ProntuarioService.compartilhar(contexto(req), req.params.id, req.body)
+        return reply.send({ data: prontuario, message: 'Acesso ao atendimento atualizado' })
     },
 
     async adicionarAdendo(req, reply) {

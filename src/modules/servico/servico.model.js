@@ -11,6 +11,8 @@ const servicoSchema = new mongoose.Schema({
     // Preço e comissão do atendimento particular. A comissão é o que o profissional recebe por atendimento
     // realizado: um valor em reais ('valor') ou um percentual do valor cobrado ('percentual').
     preco: { type: Number, required: true },
+    // Módulo que usa este serviço (a avaliação escolhe entre os serviços do seu módulo); null = atendimento comum.
+    modulo: { type: String, enum: ['nr01', 'neuropsicologica', null], default: null },
     comissao: { type: Number, default: 0, min: 0 },
     comissaoTipo: { type: String, enum: ['valor', 'percentual'], default: 'valor' },
 

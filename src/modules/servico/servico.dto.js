@@ -17,14 +17,16 @@ export function createServicoDTO(body) {
         comissao: body.comissao ?? 0,
         comissaoTipo: body.comissaoTipo ?? 'valor',
         tabelaConvenios: tabelaDTO(body.tabelaConvenios),
+        modulo: body.modulo || null,
     }
 }
 
 export function updateServicoDTO(body) {
-    const allowed = ['nome', 'tipo', 'qtdDias', 'preco', 'comissao', 'comissaoTipo', 'tabelaConvenios']
+    const allowed = ['nome', 'tipo', 'qtdDias', 'preco', 'comissao', 'comissaoTipo', 'tabelaConvenios', 'modulo']
     const dto = Object.fromEntries(
         Object.entries(body).filter(([key]) => allowed.includes(key))
     )
     if ('tabelaConvenios' in dto) dto.tabelaConvenios = tabelaDTO(dto.tabelaConvenios)
+    if ('modulo' in dto) dto.modulo = dto.modulo || null
     return dto
 }

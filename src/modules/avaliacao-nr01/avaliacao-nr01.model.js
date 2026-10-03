@@ -9,6 +9,7 @@ const avaliacaoNr01Schema = new mongoose.Schema({
     empresaId: { type: mongoose.Schema.Types.ObjectId, ref: 'empresas', required: true },
     pacienteId: { type: mongoose.Schema.Types.ObjectId, ref: 'pacientes', default: null },
     profissionalId: { type: mongoose.Schema.Types.ObjectId, ref: 'profissionais', required: true },
+    servicoId: { type: mongoose.Schema.Types.ObjectId, ref: 'servicos', default: null },
 
     data: { type: Date, default: Date.now },
     respostas: { type: [respostaSchema], default: [] },

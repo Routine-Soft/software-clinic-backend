@@ -100,7 +100,7 @@ export const ComissaoService = {
 
         const pendentes = await AgendaModel.find(filtro, '_id comissao.valor')
         if (pendentes.length === 0) {
-            throw new AppError('Não há comissão pendente para este profissional', 400)
+            throw new AppError('Não há repasse pendente para este profissional', 400)
         }
 
         const pagamento = await ComissaoPagamentoModel.create({
@@ -125,7 +125,7 @@ export const ComissaoService = {
             ])
             if (!real) {
                 await pagamento.deleteOne()
-                throw new AppError('As comissões deste profissional mudaram enquanto o pagamento era feito. Confira e tente de novo.', 409)
+                throw new AppError('Os repasses deste profissional mudaram enquanto o pagamento era feito. Confira e tente de novo.', 409)
             }
             pagamento.valor = real.total
             pagamento.quantidade = real.quantidade

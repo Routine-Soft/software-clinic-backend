@@ -1,5 +1,6 @@
 import AvaliacaoNr01Model from './avaliacao-nr01.model.js'
 import { createAvaliacaoNr01DTO, updateAvaliacaoNr01DTO } from './avaliacao-nr01.dto.js'
+import { validarServicoDoModulo } from '../servico/servico.modulo.js'
 import AppError from '../../errors/AppError.js'
 
 export const AvaliacaoNr01Service = {
@@ -14,6 +15,7 @@ export const AvaliacaoNr01Service = {
             .populate('empresaId')
             .populate('pacienteId')
             .populate('profissionalId')
+            .populate('servicoId', 'nome')
             .sort({ data: -1 })
     },
 
@@ -22,6 +24,7 @@ export const AvaliacaoNr01Service = {
             .populate('empresaId')
             .populate('pacienteId')
             .populate('profissionalId')
+            .populate('servicoId', 'nome')
 
         if (!avaliacao) {
             throw new AppError('Avaliação NR-01 não encontrada', 404)
@@ -31,11 +34,13 @@ export const AvaliacaoNr01Service = {
 
     async createAvaliacao(body, tenantId) {
         const avaliacaoDTO = createAvaliacaoNr01DTO(body)
+        await validarServicoDoModulo(avaliacaoDTO.servicoId, tenantId, 'nr01')
         return await AvaliacaoNr01Model.create({ ...avaliacaoDTO, tenantId })
     },
 
     async updateAvaliacao(id, tenantId, body) {
         const avaliacaoDTO = updateAvaliacaoNr01DTO(body)
+        await validarServicoDoModulo(avaliacaoDTO.servicoId, tenantId, 'nr01')
         const avaliacao = await AvaliacaoNr01Model.findOneAndUpdate(
             { _id: id, tenantId },
             { $set: avaliacaoDTO },

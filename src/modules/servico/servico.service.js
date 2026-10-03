@@ -13,16 +13,16 @@ function validarRegra({ preco, comissao, comissaoTipo }, onde) {
         throw new AppError(`Informe um preço válido ${onde}`, 400)
     }
     if (!['valor', 'percentual'].includes(comissaoTipo)) {
-        throw new AppError(`Escolha se a comissão ${onde} é em reais ou em percentual`, 400)
+        throw new AppError(`Escolha se o repasse ${onde} é em reais ou em percentual`, 400)
     }
     if (!Number.isFinite(valorComissao) || valorComissao < 0) {
-        throw new AppError(`Informe uma comissão válida (zero ou mais) ${onde}`, 400)
+        throw new AppError(`Informe um repasse válido (zero ou mais) ${onde}`, 400)
     }
     if (comissaoTipo === 'percentual' && valorComissao > 100) {
-        throw new AppError(`A comissão ${onde} não pode passar de 100%`, 400)
+        throw new AppError(`O repasse ${onde} não pode passar de 100%`, 400)
     }
     if (comissaoTipo === 'valor' && valorComissao > valorPreco) {
-        throw new AppError(`A comissão ${onde} não pode ser maior que o preço`, 400)
+        throw new AppError(`O repasse ${onde} não pode ser maior que o preço`, 400)
     }
 }
 

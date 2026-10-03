@@ -13,7 +13,7 @@ export const ComissaoController = {
 
     async pagar(req, reply) {
         const pagamento = await ComissaoService.pagar(req.user.tenantId, req.params.profissionalId, req.user.id)
-        return reply.code(201).send({ data: pagamento, message: `Comissão de ${pagamento.profissional.nome} paga` })
+        return reply.code(201).send({ data: pagamento, message: `Repasse de ${pagamento.profissional.nome} pago` })
     },
 
     async historico(req, reply) {

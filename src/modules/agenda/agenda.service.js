@@ -6,7 +6,7 @@ import { hojeDiaPuro } from '../shared/utils/dia-puro.js'
 import { regraDoServico, calcularComissao } from '../servico/servico.regras.js'
 import AppError from '../../errors/AppError.js'
 
-const COMISSAO_PAGA = 'A comissão deste atendimento já foi paga ao profissional'
+const COMISSAO_PAGA = 'O repasse deste atendimento já foi pago ao profissional'
 
 async function buscarCompleta(id, tenantId) {
     return await AgendaModel.findOne({ _id: id, tenantId })

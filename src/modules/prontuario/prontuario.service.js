@@ -13,6 +13,7 @@ function popular(query) {
         .populate('profissionalId', 'nome')
         .populate('convenioId', 'nome')
         .populate('adendos.profissionalId', 'nome')
+        .populate('compartilhadoCom', 'nome')
 }
 
 async function carregar(id, tenantId) {
@@ -34,7 +35,8 @@ export const ProntuarioService = {
         return { profissional: profissional ? { _id: profissional._id, nome: profissional.nome } : null }
     },
 
-    // Com pacienteId: os atendimentos que o profissional pode ler, mais o perfil clínico, e registra a leitura.
+    // Com pacienteId: os atendimentos que o profissional pode ler (os dele e os liberados para a especialidade
+    // dele), mais o perfil clínico, e registra a leitura.
     // Sem pacienteId: só um resumo (datas e situação, sem texto clínico) para as listas e contadores.
     async findAll(contextoRequisicao, filtros = {}) {
         const contexto = await contextoDe(contextoRequisicao)
@@ -42,15 +44,7 @@ export const ProntuarioService = {
         const tenantId = profissional.tenantId
 
         if (!filtros.pacienteId) {
-            const pacientesAtendidos = await AgendaModel.distinct('pacienteId', {
-                tenantId,
-                profissionalId: profissional._id,
-                status: { $ne: 'cancelado' },
-            })
-            const resumo = await ProntuarioModel.find({
-                tenantId,
-                $or: [{ profissionalId: profissional._id }, { pacienteId: { $in: pacientesAtendidos } }],
-            })
+            const resumo = await ProntuarioModel.find({ tenantId, ...ProntuarioAcesso.filtroLeitura(profissional) })
                 .select('pacienteId profissionalId createdAt atendimentoIniciadoEm atendimentoFinalizadoEm')
                 .sort({ createdAt: -1 })
             return { prontuarios: resumo }
@@ -61,12 +55,10 @@ export const ProntuarioService = {
             .select(CAMPOS_PERFIL_CLINICO.map((campo) => `+${campo}`).join(' '))
         if (!paciente) throw new AppError('Paciente não encontrado', 404)
 
-        const completo = await ProntuarioAcesso.atendeOPaciente(profissional, paciente._id)
-        const filtro = { tenantId, pacienteId: paciente._id }
-        if (!completo) filtro.profissionalId = profissional._id
-
-        const prontuarios = await popular(ProntuarioModel.find(filtro)).sort({ createdAt: -1 })
-        const podeVerPerfil = completo || prontuarios.length > 0
+        const prontuarios = await popular(
+            ProntuarioModel.find({ tenantId, pacienteId: paciente._id, ...ProntuarioAcesso.filtroLeitura(profissional) }),
+        ).sort({ createdAt: -1 })
+        const podeVerPerfil = prontuarios.length > 0 || await ProntuarioAcesso.atendeOPaciente(profissional, paciente._id)
         const perfilClinico = podeVerPerfil
             ? Object.fromEntries(CAMPOS_PERFIL_CLINICO.map((campo) => [campo, paciente[campo] ?? '']))
             : null
@@ -74,14 +66,14 @@ export const ProntuarioService = {
         await ProntuarioAcesso.registrar(contexto, 'leitura', prontuarios.map((p) => ({ pacienteId: paciente._id, prontuarioId: p._id })))
         if (podeVerPerfil) await ProntuarioAcesso.registrar(contexto, 'perfil_leitura', { pacienteId: paciente._id })
 
-        return { prontuarios, completo, perfilClinico }
+        return { prontuarios, perfilClinico }
     },
 
     async findById(contextoRequisicao, id) {
         const contexto = await contextoDe(contextoRequisicao)
         const prontuario = await carregar(id, contexto.profissional.tenantId)
-        if (!(await ProntuarioAcesso.podeLer(contexto.profissional, prontuario))) {
-            throw new AppError('Você não atende este paciente, então não pode abrir este prontuário.', 403)
+        if (!ProntuarioAcesso.podeLerProntuario(contexto.profissional, prontuario)) {
+            throw new AppError('Este atendimento não foi liberado para a sua especialidade.', 403)
         }
         await ProntuarioAcesso.registrar(contexto, 'leitura', { pacienteId: prontuario.pacienteId, prontuarioId: prontuario._id })
         return await popular(ProntuarioModel.findById(prontuario._id))
@@ -107,8 +99,11 @@ export const ProntuarioService = {
             throw new AppError('Você já tem um atendimento em andamento com este paciente. Finalize-o antes de iniciar outro.', 409)
         }
 
+        const compartilhadoCom = await ProntuarioAcesso.validarEspecialidades(body?.compartilhadoCom ?? [], tenantId)
+
         const prontuario = await ProntuarioModel.create({
             ...dto,
+            compartilhadoCom,
             profissionalId: profissional._id,
             tenantId,
             atendimentoIniciadoEm: new Date(),
@@ -145,6 +140,17 @@ export const ProntuarioService = {
 
         await ProntuarioAcesso.registrar(contexto, finalizar ? 'finalizacao' : 'edicao', { pacienteId: salvo.pacienteId, prontuarioId: salvo._id })
         return await popular(ProntuarioModel.findById(salvo._id))
+    },
+
+    // O autor escolhe a qualquer momento (também depois de finalizar) quais especialidades podem ler.
+    async compartilhar(contextoRequisicao, id, body) {
+        const contexto = await contextoDe(contextoRequisicao)
+        const prontuario = await carregar(id, contexto.profissional.tenantId)
+        ProntuarioAcesso.exigirAutor(contexto.profissional, prontuario, 'Só o profissional que registrou o atendimento escolhe quem pode lê-lo.')
+        const compartilhadoCom = await ProntuarioAcesso.validarEspecialidades(body?.compartilhadoCom, contexto.profissional.tenantId)
+        await ProntuarioModel.updateOne({ _id: prontuario._id }, { $set: { compartilhadoCom } })
+        await ProntuarioAcesso.registrar(contexto, 'compartilhamento', { pacienteId: prontuario.pacienteId, prontuarioId: prontuario._id })
+        return await popular(ProntuarioModel.findById(prontuario._id))
     },
 
     async adicionarAdendo(contextoRequisicao, id, body) {
