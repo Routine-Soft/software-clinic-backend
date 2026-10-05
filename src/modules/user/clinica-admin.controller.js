@@ -46,6 +46,15 @@ export const ClinicaAdminController = {
         return reply.send({ data: null, message: 'Senha redefinida. Passe a nova senha ao administrador da clínica.' })
     },
 
+    async definirLembretesWhatsapp(req, reply) {
+        const ativo = req.body?.ativo
+        const admin = await ClinicaAdminService.definirLembretesWhatsapp(req.params.id, ativo)
+        return reply.send({
+            data: { _id: admin._id, lembretesWhatsapp: admin.lembretesWhatsapp },
+            message: ativo ? 'Lembretes pelo WhatsApp ligados para a clínica' : 'Lembretes pelo WhatsApp desligados para a clínica',
+        })
+    },
+
     async estenderTeste(req, reply) {
         const assinatura = await ClinicaAdminService.estenderTeste(req.params.id)
         return reply.send({ data: comAcesso(assinatura), message: 'Teste estendido por mais 3 dias' })

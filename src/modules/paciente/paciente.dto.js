@@ -7,6 +7,7 @@ export function createPacienteDTO(body) {
         dataNascimento: body.dataNascimento,
         convenioId: body.convenioId || null,
         empresaId: body.empresaId || null,
+        aceitaWhatsapp: body.aceitaWhatsapp === true,
     }
 }
 
@@ -19,6 +20,7 @@ export function updatePacienteDTO(body) {
         'dataNascimento',
         'convenioId',
         'empresaId',
+        'aceitaWhatsapp',
     ]
     return Object.fromEntries(
         Object.entries(body).filter(([key]) => allowed.includes(key))

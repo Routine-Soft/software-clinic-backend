@@ -8,6 +8,8 @@ import AppError from '../../errors/AppError.js'
 
 const COMISSAO_PAGA = 'O repasse deste atendimento já foi pago ao profissional'
 
+const LEMBRETE_VAZIO = { enviadoEm: null, mensagemId: null, situacao: null, erro: null, resposta: null, respondidoEm: null }
+
 async function buscarCompleta(id, tenantId) {
     return await AgendaModel.findOne({ _id: id, tenantId })
         .populate('pacienteId')
@@ -106,9 +108,14 @@ export const AgendaService = {
             throw new AppError('Desmarque o atendimento como realizado antes de trocar o profissional, o serviço, o convênio ou o valor', 409)
         }
 
+        // Lembrete já enviado vale para o horário antigo: com outro dia, horário ou paciente, um novo será enviado.
+        const trocaDia = 'data' in agendaDTO && new Date(agendaDTO.data).getTime() !== atual.data?.getTime()
+        const trocaHorario = trocaDia || ['horaInicio', 'pacienteId'].some((campo) => campo in agendaDTO && String(agendaDTO[campo] ?? null) !== String(atual[campo] ?? null))
+        const alteracoes = trocaHorario ? { ...agendaDTO, lembrete: LEMBRETE_VAZIO } : agendaDTO
+
         const agenda = await AgendaModel.findOneAndUpdate(
             { _id: id, tenantId },
-            { $set: agendaDTO },
+            { $set: alteracoes },
             { new: true, runValidators: true }
         )
 

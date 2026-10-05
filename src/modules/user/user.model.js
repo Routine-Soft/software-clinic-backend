@@ -16,6 +16,9 @@ const userSchema = new mongoose.Schema({
     telefone: { type: String, required: true },
     cnpj: { type: String, default: null },
     nomeEmpresa: { type: String, required: true },
+    // Lembretes de consulta pelo WhatsApp ligados para a clínica (só vale no usuário dono da clínica).
+    // Recurso pago: quem liga é o super_admin.
+    lembretesWhatsapp: { type: Boolean, default: false },
 
     role: {
         type: String,

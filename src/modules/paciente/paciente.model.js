@@ -8,6 +8,8 @@ const pacienteSchema = new mongoose.Schema({
     dataNascimento: { type: Date, required: true },
     convenioId: { type: mongoose.Schema.Types.ObjectId, ref: 'convenios', default: null },
     empresaId: { type: mongoose.Schema.Types.ObjectId, ref: 'empresas', default: null },
+    // Consentimento para lembretes de consulta pelo WhatsApp (exigido pela Meta e pela LGPD).
+    aceitaWhatsapp: { type: Boolean, default: false },
 
     // Perfil clínico: dado de saúde, fica fora de toda consulta por padrão (select: false), inclusive nos
     // populate da agenda. Só o módulo de prontuário lê e grava, com as regras de sigilo.

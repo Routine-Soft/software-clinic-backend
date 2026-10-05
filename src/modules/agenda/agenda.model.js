@@ -31,6 +31,18 @@ const agendaSchema = new mongoose.Schema({
 
     grupoRecorrenciaId: { type: mongoose.Schema.Types.ObjectId, default: null },
 
+    // Lembrete pelo WhatsApp, enviado no dia anterior (ver lembrete-whatsapp). Trocar o dia, o horário ou o paciente
+    // zera o registro, para o novo horário ganhar o próprio lembrete.
+    // situacao acompanha o que a Meta informa; resposta é o botão que o paciente apertou.
+    lembrete: {
+        enviadoEm: { type: Date, default: null },
+        mensagemId: { type: String, default: null },
+        situacao: { type: String, enum: ['enviando', 'enviado', 'entregue', 'lido', 'falhou', null], default: null },
+        erro: { type: String, default: null },
+        resposta: { type: String, enum: ['confirmado', 'desmarcado', null], default: null },
+        respondidoEm: { type: Date, default: null },
+    },
+
     financeiro: {
         valor: { type: Number, required: true },
         vencimento: { type: Date, required: true },
@@ -44,6 +56,7 @@ const agendaSchema = new mongoose.Schema({
 
 agendaSchema.index({ tenantId: 1, profissionalId: 1, data: 1 })
 agendaSchema.index({ tenantId: 1, salaId: 1, data: 1 })
+agendaSchema.index({ 'lembrete.mensagemId': 1 }, { sparse: true })
 
 const AgendaModel = mongoose.models.agendas || mongoose.model('agendas', agendaSchema);
 

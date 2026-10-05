@@ -19,6 +19,8 @@ import { assinaturaRoutes } from "./src/modules/assinatura/assinatura.routes.js"
 import { printRoutes } from "./src/modules/print/print.routes.js";
 import { comissaoRoutes } from "./src/modules/comissao/comissao.routes.js";
 import { avaliacaoNeuropsicologicaRoutes } from "./src/modules/avaliacao-neuropsicologica/avaliacao-neuropsicologica.routes.js";
+import { lembreteWhatsappRoutes } from "./src/modules/lembrete-whatsapp/lembrete.routes.js";
+import { iniciarLembretesWhatsapp } from "./src/modules/lembrete-whatsapp/lembrete.agendador.js";
 
 const fastify = Fastify({ logger: true })
 
@@ -55,6 +57,7 @@ await fastify.register(assinaturaRoutes, { prefix: '/api' })
 await fastify.register(printRoutes, { prefix: '/api' })
 await fastify.register(comissaoRoutes, { prefix: '/api' })
 await fastify.register(avaliacaoNeuropsicologicaRoutes, { prefix: '/api' })
+await fastify.register(lembreteWhatsappRoutes, { prefix: '/api' })
 
 const start = async () => {
   try {
@@ -62,6 +65,7 @@ const start = async () => {
 
     await fastify.listen({ port: process.env.PORT || 8080, host: '0.0.0.0' })
     console.log(`🚀 Servidor rodando na porta ${process.env.PORT || 8080}`)
+    iniciarLembretesWhatsapp(fastify.log)
   } catch (err) {
     fastify.log.error(err)
     process.exit(1)

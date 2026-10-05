@@ -122,6 +122,7 @@ export const ClinicaAdminService = {
             telefone: admin.telefone,
             nomeEmpresa: admin.nomeEmpresa,
             cnpj: admin.cnpj,
+            lembretesWhatsapp: !!admin.lembretesWhatsapp,
             createdAt: admin.createdAt,
             assinatura: assinaturaParaDTO(mapaAssinaturas.get(String(admin._id)), mapaPlanos),
         }))
@@ -158,6 +159,18 @@ export const ClinicaAdminService = {
         }
 
         await AssinaturaService.criarAssinaturaTrial(novoId)
+        return admin
+    },
+
+    // Lembretes pelo WhatsApp são um recurso pago (cada mensagem tem custo), por isso só o super_admin liga.
+    async definirLembretesWhatsapp(id, ativo) {
+        if (typeof ativo !== 'boolean') {
+            throw new AppError('Informe se os lembretes ficam ligados ou desligados', 400)
+        }
+        const admin = await UserModel.findOneAndUpdate({ _id: id, role: 'admin' }, { $set: { lembretesWhatsapp: ativo } }, { new: true })
+        if (!admin) {
+            throw new AppError('Administrador não encontrado', 404)
+        }
         return admin
     },
 

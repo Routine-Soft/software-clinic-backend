@@ -32,6 +32,7 @@ export async function userRoutes(fastify) {
         fastify.patch('/users/admins/:id/estender-teste', soSuperAdmin, ClinicaAdminController.estenderTeste)
         fastify.patch('/users/admins/:id/senha', soSuperAdmin, ClinicaAdminController.redefinirSenha)
         fastify.patch('/users/admins/:id/acesso', soSuperAdmin, ClinicaAdminController.definirRevogacao)
+        fastify.patch('/users/admins/:id/whatsapp', soSuperAdmin, ClinicaAdminController.definirLembretesWhatsapp)
         fastify.get('/users/tenant',
             {
                 preHandler: authorize(['admin', 'super_admin'])
