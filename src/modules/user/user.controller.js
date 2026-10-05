@@ -19,24 +19,24 @@ export const UserController = {
     },
 
     async updateUsuarioDaClinica(req, reply) {
-        const { tenantId } = req.user
+        const { tenantId, role } = req.user
         const { id } = req.params
-        const user = await UserService.updateUsuarioDaClinica(tenantId, id, req.body)
+        const user = await UserService.updateUsuarioDaClinica(tenantId, id, req.body, role)
         return reply.send({ data: user, message: 'Usuário atualizado com sucesso' })
     },
 
     async deleteUsuarioDaClinica(req, reply) {
-        const { tenantId } = req.user
+        const { tenantId, role } = req.user
         const { id } = req.params
-        await UserService.deleteUsuarioDaClinica(tenantId, id)
+        await UserService.deleteUsuarioDaClinica(tenantId, id, role)
         return reply.send({ data: null, message: 'Usuário removido com sucesso' })
     },
 
     async resetPasswordUsuarioDaClinica(req, reply) {
-        const { tenantId } = req.user
+        const { tenantId, role } = req.user
         const { id } = req.params
         const { novaSenha } = req.body
-        await UserService.resetPasswordUsuarioDaClinica(tenantId, id, novaSenha)
+        await UserService.resetPasswordUsuarioDaClinica(tenantId, id, novaSenha, role)
         return reply.send({ data: null, message: 'Senha redefinida com sucesso' })
     },
 

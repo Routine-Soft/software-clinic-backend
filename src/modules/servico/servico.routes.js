@@ -10,7 +10,7 @@ export async function servicoRoutes(fastify) {
         fastify.addHook('preHandler', exigirAssinaturaAtiva)
 
         // Todos da clínica leem (a agenda precisa da lista); só o admin altera preço e comissão.
-        const soAdmin = { preHandler: authorize(['admin', 'super_admin']) }
+        const soAdmin = { preHandler: authorize(['admin', 'super_admin', 'recepcao']) }
 
         fastify.get('/servicos', ServicoController.getAllServicos)
         fastify.get('/servicos/:id', ServicoController.getServicoById)

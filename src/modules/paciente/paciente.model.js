@@ -1,13 +1,29 @@
 import mongoose from 'mongoose'
 
+// Responsável legal (pais, avós, tutor). Usado principalmente para pacientes menores de idade.
+const responsavelSchema = new mongoose.Schema({
+    nome: { type: String, required: true, trim: true },
+    parentesco: { type: String, default: '', trim: true },
+    cpf: { type: String, default: '', trim: true },
+    telefone: { type: String, default: '', trim: true },
+    email: { type: String, default: '', trim: true, lowercase: true },
+}, { _id: false })
+
 const pacienteSchema = new mongoose.Schema({
     nome: { type: String, required: true },
-    telefone: { type: String, required: true },
-    email: { type: String, required: true, trim: true, lowercase: true },
+    // Obrigatórios para adultos; para menores de idade, o contato pode ser só o dos responsáveis
+    // (a regra fica em paciente.service.js, porque depende da data de nascimento).
+    telefone: { type: String, default: '' },
+    email: { type: String, default: '', trim: true, lowercase: true },
     cpf: { type: String, required: true },
     dataNascimento: { type: Date, required: true },
     convenioId: { type: mongoose.Schema.Types.ObjectId, ref: 'convenios', default: null },
     empresaId: { type: mongoose.Schema.Types.ObjectId, ref: 'empresas', default: null },
+    responsaveis: {
+        type: [responsavelSchema],
+        default: [],
+        validate: { validator: (lista) => lista.length <= 2, message: 'Informe no máximo dois responsáveis' },
+    },
 
     // Perfil clínico: dado de saúde, fica fora de toda consulta por padrão (select: false), inclusive nos
     // populate da agenda. Só o módulo de prontuário lê e grava, com as regras de sigilo.

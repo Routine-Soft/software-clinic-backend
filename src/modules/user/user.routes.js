@@ -34,23 +34,23 @@ export async function userRoutes(fastify) {
         fastify.patch('/users/admins/:id/acesso', soSuperAdmin, ClinicaAdminController.definirRevogacao)
         fastify.get('/users/tenant',
             {
-                preHandler: authorize(['admin', 'super_admin'])
+                preHandler: authorize(['admin', 'super_admin', 'recepcao'])
             }, UserController.getUsersDaClinica)
         fastify.post('/users/tenant',
             {
-                preHandler: authorize(['admin', 'super_admin'])
+                preHandler: authorize(['admin', 'super_admin', 'recepcao'])
             }, UserController.createUsuarioDaClinica)
         fastify.patch('/users/tenant/:id',
             {
-                preHandler: authorize(['admin', 'super_admin'])
+                preHandler: authorize(['admin', 'super_admin', 'recepcao'])
             }, UserController.updateUsuarioDaClinica)
         fastify.patch('/users/tenant/:id/senha',
             {
-                preHandler: authorize(['admin', 'super_admin'])
+                preHandler: authorize(['admin', 'super_admin', 'recepcao'])
             }, UserController.resetPasswordUsuarioDaClinica)
         fastify.delete('/users/tenant/:id',
             {
-                preHandler: authorize(['admin', 'super_admin'])
+                preHandler: authorize(['admin', 'super_admin', 'recepcao'])
             }, UserController.deleteUsuarioDaClinica)
         fastify.get('/users/me', UserController.getMe)
         fastify.patch('/users/me', UserController.updateMe)

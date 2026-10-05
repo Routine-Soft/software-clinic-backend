@@ -3,6 +3,33 @@ import { createPacienteDTO, updatePacienteDTO } from './paciente.dto.js'
 import ProntuarioModel from '../prontuario/prontuario.model.js'
 import AppError from '../../errors/AppError.js'
 
+const MAIORIDADE = 18
+
+// Idade em anos completos hoje (no fuso de Brasília). A data de nascimento é gravada como meia-noite UTC.
+export function idadeEmAnos(dataNascimento, agora = new Date()) {
+    const nascimento = new Date(dataNascimento)
+    if (Number.isNaN(nascimento.getTime())) return null
+    const [ano, mes, dia] = agora.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).split('-').map(Number)
+    let idade = ano - nascimento.getUTCFullYear()
+    if (mes < nascimento.getUTCMonth() + 1 || (mes === nascimento.getUTCMonth() + 1 && dia < nascimento.getUTCDate())) idade--
+    return idade
+}
+
+// Adulto precisa de telefone e e-mail próprios; criança pode usar o contato dos responsáveis.
+function validarPaciente(paciente) {
+    if ((paciente.responsaveis ?? []).some((r) => !r.nome)) {
+        throw new AppError('Informe o nome do responsável', 400)
+    }
+    if ((paciente.responsaveis ?? []).length > 2) {
+        throw new AppError('Informe no máximo dois responsáveis', 400)
+    }
+    const idade = idadeEmAnos(paciente.dataNascimento)
+    const menor = idade !== null && idade < MAIORIDADE
+    if (!menor && (!paciente.telefone || !paciente.email)) {
+        throw new AppError('Informe o telefone e o e-mail do paciente', 400)
+    }
+}
+
 export const PacienteService = {
     async findAll(tenantId) {
         return await PacienteModel.find({ tenantId }).populate('convenioId').populate('empresaId')
@@ -18,6 +45,7 @@ export const PacienteService = {
 
     async createPaciente(body, tenantId) {
         const pacienteDTO = createPacienteDTO(body)
+        validarPaciente(pacienteDTO)
         try {
             return await PacienteModel.create({ ...pacienteDTO, tenantId })
         } catch (error) {
@@ -30,6 +58,12 @@ export const PacienteService = {
 
     async updatePaciente(id, tenantId, body) {
         const pacienteDTO = updatePacienteDTO(body)
+        const atual = await PacienteModel.findOne({ _id: id, tenantId }).lean()
+        if (!atual) {
+            throw new AppError('Paciente não encontrado', 404)
+        }
+        validarPaciente({ ...atual, ...pacienteDTO })
+
         const paciente = await PacienteModel.findOneAndUpdate(
             { _id: id, tenantId },
             { $set: pacienteDTO },

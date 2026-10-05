@@ -28,6 +28,18 @@ export const UserService = {
         return await UserModel.find({ tenantId })
     },
 
+    // A recepção também administra os usuários da clínica, mas não as contas de administrador: trocar a senha
+    // do dono daria a ela tudo o que só o admin pode (como cancelar a assinatura).
+    async exigirPodeAlterarUsuario(tenantId, id, papelDeQuemAltera) {
+        const alvo = await UserModel.findOne({ _id: id, tenantId }, 'role')
+        if (!alvo) {
+            throw new AppError('Usuário não encontrado', 404)
+        }
+        if (papelDeQuemAltera === 'recepcao' && ['admin', 'super_admin'].includes(alvo.role)) {
+            throw new AppError('Só o administrador da clínica pode alterar a conta de um administrador', 403)
+        }
+    },
+
     async createUsuarioDaClinica(tenantId, body) {
         const userDTO = createUserDTO(body)
         userDTO.password = await argon2.hash(userDTO.password)
@@ -48,7 +60,8 @@ export const UserService = {
         }
     },
 
-    async updateUsuarioDaClinica(tenantId, id, body) {
+    async updateUsuarioDaClinica(tenantId, id, body, papelDeQuemAltera) {
+        await this.exigirPodeAlterarUsuario(tenantId, id, papelDeQuemAltera)
         const userDTO = updateUserDTO(body)
         if (['profissional', 'recepcao'].includes(body.role)) {
             userDTO.role = body.role
@@ -73,7 +86,8 @@ export const UserService = {
         return user
     },
 
-    async deleteUsuarioDaClinica(tenantId, id) {
+    async deleteUsuarioDaClinica(tenantId, id, papelDeQuemAltera) {
+        await this.exigirPodeAlterarUsuario(tenantId, id, papelDeQuemAltera)
         const user = await UserModel.findOneAndDelete({ _id: id, tenantId })
         if (!user) {
             throw new AppError('Usuário não encontrado', 404)
@@ -81,7 +95,8 @@ export const UserService = {
         return null
     },
 
-    async resetPasswordUsuarioDaClinica(tenantId, id, novaSenha) {
+    async resetPasswordUsuarioDaClinica(tenantId, id, novaSenha, papelDeQuemAltera) {
+        await this.exigirPodeAlterarUsuario(tenantId, id, papelDeQuemAltera)
         const user = await UserModel.findOne({ _id: id, tenantId })
         if (!user) {
             throw new AppError('Usuário não encontrado', 404)
