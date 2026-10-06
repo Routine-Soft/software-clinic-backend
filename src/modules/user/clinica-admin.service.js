@@ -4,6 +4,10 @@ import UserModel from './user.model.js'
 import AssinaturaModel from '../assinatura/assinatura.model.js'
 import PagamentoModel from '../assinatura/pagamento.model.js'
 import PlanoModel from '../plano/plano.model.js'
+import ProfissionalModel from '../profissional/profissional.model.js'
+import PacienteModel from '../paciente/paciente.model.js'
+import EmpresaModel from '../empresa/empresa.model.js'
+import AgendaModel from '../agenda/agenda.model.js'
 import { AssinaturaService, avaliarAcesso } from '../assinatura/assinatura.service.js'
 import AppError from '../../errors/AppError.js'
 
@@ -48,6 +52,60 @@ async function assinaturasMaisRecentesPorTenant(tenantIds) {
         { $group: { _id: '$tenantId', doc: { $first: '$$ROOT' } } },
     ])
     return new Map(docs.map((d) => [String(d._id), d.doc]))
+}
+
+// Quantidade de documentos de cada clínica numa coleção, em uma consulta só para todas as clínicas.
+async function contarPorTenant(Model, tenantIds) {
+    const docs = await Model.aggregate([
+        { $match: { tenantId: { $in: tenantIds } } },
+        { $group: { _id: '$tenantId', total: { $sum: 1 } } },
+    ])
+    return new Map(docs.map((d) => [String(d._id), d.total]))
+}
+
+// Números de uso e de pagamento de cada clínica, para o super_admin acompanhar quem usa e quanto já pagou.
+async function estatisticasPorTenant(tenantIds) {
+    const [usuarios, profissionais, pacientes, empresas, agendas, pagamentos] = await Promise.all([
+        contarPorTenant(UserModel, tenantIds),
+        contarPorTenant(ProfissionalModel, tenantIds),
+        contarPorTenant(PacienteModel, tenantIds),
+        contarPorTenant(EmpresaModel, tenantIds),
+        AgendaModel.aggregate([
+            { $match: { tenantId: { $in: tenantIds } } },
+            { $group: { _id: { tenantId: '$tenantId', status: '$status' }, total: { $sum: 1 } } },
+        ]),
+        PagamentoModel.aggregate([
+            { $match: { tenantId: { $in: tenantIds }, status: 'aprovado' } },
+            { $group: { _id: '$tenantId', total: { $sum: '$valor' }, quantidade: { $sum: 1 }, ultimo: { $max: '$aprovadoEm' } } },
+        ]),
+    ])
+
+    const agendasPorTenant = new Map()
+    for (const { _id, total } of agendas) {
+        const chave = String(_id.tenantId)
+        agendasPorTenant.set(chave, { ...(agendasPorTenant.get(chave) ?? {}), [_id.status]: total })
+    }
+    const pagamentosPorTenant = new Map(pagamentos.map((p) => [String(p._id), p]))
+
+    return (tenantId) => {
+        const chave = String(tenantId)
+        const porStatus = agendasPorTenant.get(chave) ?? {}
+        const pago = pagamentosPorTenant.get(chave)
+        return {
+            usuarios: usuarios.get(chave) ?? 0,
+            profissionais: profissionais.get(chave) ?? 0,
+            pacientes: pacientes.get(chave) ?? 0,
+            empresas: empresas.get(chave) ?? 0,
+            agendamentos: {
+                abertos: porStatus.aguardando ?? 0,
+                realizados: porStatus.realizado ?? 0,
+                cancelados: porStatus.cancelado ?? 0,
+            },
+            totalPago: pago?.total ?? 0,
+            pagamentos: pago?.quantidade ?? 0,
+            ultimoPagamento: pago?.ultimo ?? null,
+        }
+    }
 }
 
 function assinaturaParaDTO(assinatura, mapaPlanos) {
@@ -109,9 +167,11 @@ export const ClinicaAdminService = {
         }
 
         const admins = await UserModel.find(filtro).sort({ createdAt: -1 })
-        const [mapaAssinaturas, planos] = await Promise.all([
-            assinaturasMaisRecentesPorTenant(admins.map((a) => a._id)),
+        const ids = admins.map((a) => a._id)
+        const [mapaAssinaturas, planos, estatisticasDe] = await Promise.all([
+            assinaturasMaisRecentesPorTenant(ids),
             PlanoModel.find(),
+            estatisticasPorTenant(ids),
         ])
         const mapaPlanos = new Map(planos.map((p) => [String(p._id), p]))
 
@@ -123,7 +183,27 @@ export const ClinicaAdminService = {
             nomeEmpresa: admin.nomeEmpresa,
             cnpj: admin.cnpj,
             createdAt: admin.createdAt,
+            estatisticas: estatisticasDe(admin._id),
             assinatura: assinaturaParaDTO(mapaAssinaturas.get(String(admin._id)), mapaPlanos),
+        }))
+    },
+
+    // Pagamentos aprovados da clínica (Pix e cartão), do mais recente ao mais antigo.
+    async historicoDePagamentos(id) {
+        const admin = await UserModel.findOne({ _id: id, role: 'admin' }, '_id')
+        if (!admin) {
+            throw new AppError('Administrador não encontrado', 404)
+        }
+        const pagamentos = await PagamentoModel.find({ tenantId: admin._id, status: 'aprovado' })
+            .sort({ aprovadoEm: -1 })
+            .populate('planoId', 'nome')
+            .lean()
+        return pagamentos.map((p) => ({
+            _id: p._id,
+            aprovadoEm: p.aprovadoEm ?? p.createdAt,
+            valor: p.valor,
+            metodo: p.metodo,
+            plano: p.planoId?.nome ?? null,
         }))
     },
 

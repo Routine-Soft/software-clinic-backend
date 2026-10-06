@@ -25,6 +25,7 @@ export async function userRoutes(fastify) {
         fastify.get('/users/admins/resumo', soSuperAdmin, ClinicaAdminController.resumo)
         fastify.get('/users/admins/receita', soSuperAdmin, ClinicaAdminController.receita)
         fastify.get('/users/admins', soSuperAdmin, ClinicaAdminController.listar)
+        fastify.get('/users/admins/:id/pagamentos', soSuperAdmin, ClinicaAdminController.historicoDePagamentos)
         fastify.post('/users/admins', soSuperAdmin, ClinicaAdminController.criar)
         fastify.patch('/users/admins/:id', soSuperAdmin, ClinicaAdminController.editar)
         fastify.delete('/users/admins/:id', soSuperAdmin, ClinicaAdminController.apagar)
