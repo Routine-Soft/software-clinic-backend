@@ -26,9 +26,9 @@ function validarRegra({ preco, comissao, comissaoTipo }, onde) {
     }
 }
 
-// Regra particular e a de cada convênio da tabela (convênio desta clínica, sem repetir).
+// Regra padrão e a de cada convênio da tabela (convênio desta clínica, sem repetir).
 async function validarPrecos(servico, tenantId) {
-    validarRegra(servico, 'do particular')
+    validarRegra(servico, 'da regra padrão')
 
     const tabela = servico.tabelaConvenios ?? []
     const ids = tabela.map((linha) => String(linha.convenioId))

@@ -223,6 +223,47 @@ export async function aplicarStatusPreapproval(assinatura, preapproval) {
     return assinatura
 }
 
+// Assinatura no cartão agendada para depois do período do Pix. Autorizada no Mercado Pago, ela vira a cobrança da
+// clínica (a primeira parcela cai no dia em que o Pix venceria); cancelada, é só descartada e o Pix segue como estava.
+export function aplicarCartaoAgendado(assinatura, preapproval) {
+    if (preapproval.status === 'authorized') {
+        assinatura.mercadoPagoPreapprovalId = preapproval.id
+        assinatura.cartaoAgendadoPreapprovalId = null
+        assinatura.status = 'ativa'
+        assinatura.cobranca = 'recorrente'
+        assinatura.inadimplenteDesde = null
+        if (preapproval.next_payment_date) assinatura.proximaCobranca = new Date(preapproval.next_payment_date)
+    } else if (preapproval.status === 'cancelled') {
+        assinatura.cartaoAgendadoPreapprovalId = null
+    }
+    return assinatura
+}
+
+// Corpo da assinatura recorrente no Mercado Pago. inicio: primeira cobrança numa data futura (troca do Pix para o cartão).
+export function corpoDaAssinaturaNoCartao({ assinatura, plano, emailPagador, inicio = null }) {
+    const body = {
+        reason: `Assinatura SoftwareClinic - ${plano.nome}`,
+        external_reference: assinatura._id.toString(),
+        // No ambiente de teste do Mercado Pago o pagador precisa ser um usuário de teste (comprador).
+        // MP_TEST_PAYER_EMAIL permite testar sem mudar o e-mail da clínica; em produção fica vazio.
+        payer_email: process.env.MP_TEST_PAYER_EMAIL || emailPagador,
+        auto_recurring: {
+            frequency: 1,
+            frequency_type: 'months',
+            transaction_amount: plano.preco,
+            currency_id: 'BRL',
+            ...(inicio ? { start_date: new Date(inicio).toISOString() } : {}),
+        },
+        back_url: urlDeRetorno(),
+    }
+
+    // Só há como o Mercado Pago avisar (webhook) se o backend estiver em uma URL pública.
+    if (process.env.APP_URL_BACKEND) {
+        body.notification_url = `${process.env.APP_URL_BACKEND.replace(/\/+$/, '')}/api/assinaturas/webhook`
+    }
+    return body
+}
+
 export const AssinaturaService = {
 
     async criarAssinaturaTrial(tenantId) {
@@ -341,32 +382,13 @@ export const AssinaturaService = {
         const assinatura = await this.obterAssinaturaAtual(tenantId)
         if (assinatura.status === 'ativa') {
             if (assinatura.cobranca === 'pix') {
-                throw new AppError(`Seu período pago por Pix está ativo até ${dataBR(assinatura.proximaCobranca)}. Quando ele terminar, você poderá assinar no cartão ou renovar por Pix.`, 409)
+                return await this.agendarCartaoAposPix(assinatura, admin, planoId)
             }
             throw new AppError('Esta clínica já possui uma assinatura ativa. Para trocar de plano, cancele a assinatura atual antes.', 409)
         }
 
         const planoPago = await this.escolherPlanoPago(assinatura, planoId)
-
-        const body = {
-            reason: `Assinatura SoftwareClinic - ${planoPago.nome}`,
-            external_reference: assinatura._id.toString(),
-            // No ambiente de teste do Mercado Pago o pagador precisa ser um usuário de teste (comprador).
-            // MP_TEST_PAYER_EMAIL permite testar sem mudar o e-mail da clínica; em produção fica vazio.
-            payer_email: process.env.MP_TEST_PAYER_EMAIL || admin.email,
-            auto_recurring: {
-                frequency: 1,
-                frequency_type: 'months',
-                transaction_amount: planoPago.preco,
-                currency_id: 'BRL',
-            },
-            back_url: urlDeRetorno(),
-        }
-
-        // Só há como o Mercado Pago avisar (webhook) se o backend estiver em uma URL pública.
-        if (process.env.APP_URL_BACKEND) {
-            body.notification_url = `${process.env.APP_URL_BACKEND.replace(/\/+$/, '')}/api/assinaturas/webhook`
-        }
+        const body = corpoDaAssinaturaNoCartao({ assinatura, plano: planoPago, emailPagador: admin.email })
 
         let result
         try {
@@ -394,12 +416,50 @@ export const AssinaturaService = {
         return { url: result.init_point }
     },
 
+    // Quem paga por Pix pode passar para o cartão sem perder os dias já pagos: a assinatura no cartão é criada com a
+    // primeira cobrança no dia em que o Pix vence. Até o checkout ser concluído, nada muda na assinatura atual.
+    async agendarCartaoAposPix(assinatura, admin, planoId) {
+        const planoAtual = assinatura.planoId
+        if (planoId && String(planoId) !== String(planoAtual?._id)) {
+            throw new AppError(`Para trocar de plano, aguarde o fim do período pago por Pix (${dataBR(assinatura.proximaCobranca)}). Agora dá para passar o plano atual para o cartão.`, 409)
+        }
+        if (planoAtual?.tipo !== 'pago' || !planoAtual.ativo) {
+            throw new AppError('Este plano não está mais disponível no cartão. Escolha outro quando o período do Pix acabar.', 409)
+        }
+
+        const body = corpoDaAssinaturaNoCartao({ assinatura, plano: planoAtual, emailPagador: admin.email, inicio: assinatura.proximaCobranca })
+
+        let result
+        try {
+            result = await new PreApproval(getMpClient()).create({ body })
+        } catch (error) {
+            throw traduzirErroMercadoPago(error)
+        }
+
+        // Uma tentativa anterior que não foi concluída é descartada (só pode haver uma troca em andamento).
+        if (assinatura.cartaoAgendadoPreapprovalId) {
+            await new PreApproval(getMpClient())
+                .update({ id: assinatura.cartaoAgendadoPreapprovalId, body: { status: 'cancelled' } })
+                .catch(() => null)
+        }
+
+        assinatura.cartaoAgendadoPreapprovalId = result.id
+        await assinatura.save()
+        return { url: result.init_point }
+    },
+
     // Consulta o Mercado Pago e atualiza o status. Usa o id guardado no banco (nunca um id vindo do cliente),
     // então serve tanto para a volta do checkout quanto para o botão "verificar pagamento".
     async sincronizarAssinatura(tenantId) {
         const assinatura = await AssinaturaModel.findOne({ tenantId }).sort({ createdAt: -1 })
         if (!assinatura) {
             throw new AppError('Assinatura não encontrada', 404)
+        }
+
+        if (assinatura.cartaoAgendadoPreapprovalId) {
+            const agendado = await buscarNoMercadoPago(`/preapproval/${assinatura.cartaoAgendadoPreapprovalId}`)
+            aplicarCartaoAgendado(assinatura, agendado)
+            await assinatura.save()
         }
 
         if (assinatura.mercadoPagoPreapprovalId) {
@@ -564,6 +624,14 @@ export const AssinaturaService = {
         if (['inadimplente', 'cancelada'].includes(assinatura.status)) {
             assinatura.mercadoPagoPreapprovalId = null
         }
+        // Troca para o cartão iniciada e não concluída: com um novo Pix pago, ela é descartada para não cobrar
+        // no cartão no meio do período que acabou de ser pago.
+        if (assinatura.cartaoAgendadoPreapprovalId) {
+            await new PreApproval(getMpClient())
+                .update({ id: assinatura.cartaoAgendadoPreapprovalId, body: { status: 'cancelled' } })
+                .catch(() => null)
+            assinatura.cartaoAgendadoPreapprovalId = null
+        }
 
         assinatura.planoId = pagamento.planoId
         assinatura.status = 'ativa'
@@ -575,7 +643,13 @@ export const AssinaturaService = {
 
     async processarWebhookPreapproval(preapprovalId) {
         const assinatura = await AssinaturaModel.findOne({ mercadoPagoPreapprovalId: preapprovalId })
-        if (!assinatura) return
+        if (!assinatura) {
+            const comCartaoAgendado = await AssinaturaModel.findOne({ cartaoAgendadoPreapprovalId: preapprovalId })
+            if (!comCartaoAgendado) return
+            aplicarCartaoAgendado(comCartaoAgendado, await buscarNoMercadoPago(`/preapproval/${preapprovalId}`))
+            await comCartaoAgendado.save()
+            return
+        }
 
         const preapproval = await buscarNoMercadoPago(`/preapproval/${preapprovalId}`)
         await aplicarStatusPreapproval(assinatura, preapproval)
