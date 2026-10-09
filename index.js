@@ -12,6 +12,7 @@ import { empresaRoutes } from "./src/modules/empresa/empresa.routes.js";
 import { avaliacaoNr01Routes } from "./src/modules/avaliacao-nr01/avaliacao-nr01.routes.js";
 import { servicoRoutes } from "./src/modules/servico/servico.routes.js";
 import { agendaRoutes } from "./src/modules/agenda/agenda.routes.js";
+import { reuniaoRoutes } from "./src/modules/reuniao/reuniao.routes.js";
 import { prontuarioRoutes } from "./src/modules/prontuario/prontuario.routes.js";
 import { listaEsperaRoutes } from "./src/modules/lista-espera/lista-espera.routes.js";
 import { planoRoutes } from "./src/modules/plano/plano.routes.js";
@@ -48,6 +49,7 @@ await fastify.register(empresaRoutes, { prefix: '/api' })
 await fastify.register(avaliacaoNr01Routes, { prefix: '/api' })
 await fastify.register(servicoRoutes, { prefix: '/api' })
 await fastify.register(agendaRoutes, { prefix: '/api' })
+await fastify.register(reuniaoRoutes, { prefix: '/api' })
 await fastify.register(prontuarioRoutes, { prefix: '/api' })
 await fastify.register(listaEsperaRoutes, { prefix: '/api' })
 await fastify.register(planoRoutes, { prefix: '/api' })
