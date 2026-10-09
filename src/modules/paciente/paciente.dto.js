@@ -23,9 +23,11 @@ export function createPacienteDTO(body) {
         convenioId: body.convenioId || null,
         empresaId: body.empresaId || null,
         responsaveis: responsaveisDTO(body.responsaveis),
+        teste: body.teste === true,
     }
 }
 
+// "teste" fica de fora de propósito: um paciente real não pode virar teste para ter o prontuário apagado.
 export function updatePacienteDTO(body) {
     const allowed = [
         'nome',

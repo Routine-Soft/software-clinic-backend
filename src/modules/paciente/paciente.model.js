@@ -24,6 +24,9 @@ const pacienteSchema = new mongoose.Schema({
         default: [],
         validate: { validator: (lista) => lista.length <= 2, message: 'Informe no máximo dois responsáveis' },
     },
+    // Paciente criado só para experimentar o sistema. Só é marcado no cadastro (nunca depois) e, ao ser excluído,
+    // leva junto prontuário, agendamentos e avaliações, sem a guarda de 20 anos que vale para paciente real.
+    teste: { type: Boolean, default: false },
 
     // Perfil clínico: dado de saúde, fica fora de toda consulta por padrão (select: false), inclusive nos
     // populate da agenda. Só o módulo de prontuário lê e grava, com as regras de sigilo.

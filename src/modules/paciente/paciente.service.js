@@ -1,6 +1,11 @@
 import PacienteModel from './paciente.model.js'
 import { createPacienteDTO, updatePacienteDTO } from './paciente.dto.js'
 import ProntuarioModel from '../prontuario/prontuario.model.js'
+import ProntuarioAcessoModel from '../prontuario/prontuario-acesso.model.js'
+import AgendaModel from '../agenda/agenda.model.js'
+import ListaEsperaModel from '../lista-espera/lista-espera.model.js'
+import AvaliacaoNeuropsicologicaModel from '../avaliacao-neuropsicologica/avaliacao-neuropsicologica.model.js'
+import AvaliacaoNr01Model from '../avaliacao-nr01/avaliacao-nr01.model.js'
 import AppError from '../../errors/AppError.js'
 
 const MAIORIDADE = 18
@@ -78,6 +83,26 @@ export const PacienteService = {
     },
 
     async deletePaciente(id, tenantId) {
+        const atual = await PacienteModel.findOne({ _id: id, tenantId }, 'teste').lean()
+        if (!atual) {
+            throw new AppError('Paciente não encontrado', 404)
+        }
+
+        // Paciente de teste não existe de verdade: sai com tudo o que foi criado para ele.
+        if (atual.teste) {
+            const filtro = { tenantId, pacienteId: atual._id }
+            await Promise.all([
+                ProntuarioAcessoModel.deleteMany(filtro),
+                ProntuarioModel.deleteMany(filtro),
+                AgendaModel.deleteMany(filtro),
+                ListaEsperaModel.deleteMany(filtro),
+                AvaliacaoNeuropsicologicaModel.deleteMany(filtro),
+                AvaliacaoNr01Model.deleteMany(filtro),
+            ])
+            await PacienteModel.deleteOne({ _id: atual._id, tenantId })
+            return null
+        }
+
         // O prontuário deve ser guardado por no mínimo 20 anos (Lei 13.787/2018): paciente com atendimento fica.
         if (await ProntuarioModel.exists({ tenantId, pacienteId: id })) {
             throw new AppError('Este paciente tem prontuário registrado e não pode ser excluído: o prontuário deve ser guardado por no mínimo 20 anos.', 409)
