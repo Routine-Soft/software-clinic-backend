@@ -18,7 +18,7 @@ export function createPacienteDTO(body) {
         nome: body.nome,
         telefone: body.telefone,
         email: body.email,
-        cpf: body.cpf,
+        cpf: typeof body.cpf === 'string' ? body.cpf.trim() : '',
         dataNascimento: body.dataNascimento,
         convenioId: body.convenioId || null,
         empresaId: body.empresaId || null,

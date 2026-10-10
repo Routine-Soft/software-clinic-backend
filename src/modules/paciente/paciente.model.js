@@ -15,7 +15,8 @@ const pacienteSchema = new mongoose.Schema({
     // (a regra fica em paciente.service.js, porque depende da data de nascimento).
     telefone: { type: String, default: '' },
     email: { type: String, default: '', trim: true, lowercase: true },
-    cpf: { type: String, required: true },
+    // Opcional: nem toda criança tem CPF (aí vale o CPF do responsável, guardado em responsaveis).
+    cpf: { type: String, default: '', trim: true },
     dataNascimento: { type: Date, required: true },
     convenioId: { type: mongoose.Schema.Types.ObjectId, ref: 'convenios', default: null },
     empresaId: { type: mongoose.Schema.Types.ObjectId, ref: 'empresas', default: null },
@@ -41,8 +42,12 @@ const pacienteSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// Um mesmo CPF não pode se repetir dentro da mesma clínica (tenant)
-pacienteSchema.index({ tenantId: 1, cpf: 1 }, { unique: true })
+// Um mesmo CPF não pode se repetir dentro da mesma clínica (tenant). Só vale para CPF preenchido:
+// vários pacientes sem CPF convivem normalmente.
+pacienteSchema.index(
+    { tenantId: 1, cpf: 1 },
+    { unique: true, name: 'cpf_unico_preenchido', partialFilterExpression: { cpf: { $gt: '' } } }
+)
 
 export const CAMPOS_PERFIL_CLINICO = [
     'antecedentesClinicos',
