@@ -50,8 +50,9 @@ async function validarPrecos(servico, tenantId) {
 }
 
 export const ServicoService = {
+    // Em ordem alfabética, ignorando acento e maiúscula ("Ácido" fica junto do "A").
     async findAll(tenantId) {
-        return await ServicoModel.find({ tenantId })
+        return await ServicoModel.find({ tenantId }).collation({ locale: 'pt', strength: 1 }).sort({ nome: 1 })
     },
 
     async findById(id, tenantId) {
