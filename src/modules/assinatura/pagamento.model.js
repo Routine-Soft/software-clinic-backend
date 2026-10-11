@@ -7,11 +7,12 @@ const pagamentoSchema = new mongoose.Schema({
     assinaturaId: { type: mongoose.Schema.Types.ObjectId, ref: 'assinaturas', required: true },
     planoId: { type: mongoose.Schema.Types.ObjectId, ref: 'planos', required: true },
 
-    metodo: { type: String, enum: ['pix', 'recorrente'], default: 'pix' },
+    // credito: mês pago inteiro com o crédito de indicação, sem passar pelo Mercado Pago.
+    metodo: { type: String, enum: ['pix', 'recorrente', 'credito'], default: 'pix' },
     mercadoPagoPaymentId: { type: String, required: true, index: true },
     status: {
         type: String,
-        enum: ['pendente', 'aprovado', 'cancelado', 'expirado', 'rejeitado'],
+        enum: ['pendente', 'aprovado', 'cancelado', 'expirado', 'rejeitado', 'devolvido'],
         default: 'pendente',
     },
 
@@ -21,6 +22,12 @@ const pagamentoSchema = new mongoose.Schema({
     ticketUrl: { type: String, default: null },
     expiraEm: { type: Date, default: null },
     aprovadoEm: { type: Date, default: null },
+
+    // Desconto de "Indique e ganhe" (soma dos créditos usados): no Pix já vem abatido do valor; no cartão é
+    // devolvido depois da cobrança (e `valor` passa a ser o que ficou de fato).
+    descontoIndicacao: { type: Number, default: 0 },
+    indicacaoIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'indicacoes' }],
+    devolucaoMercadoPagoId: { type: String, default: null },
 
 }, { timestamps: true });
 

@@ -1,5 +1,6 @@
 import { AssinaturaController } from './assinatura.controller.js'
 import { authenticate, authorize } from '../shared/middlewares/auth.middleware.js'
+import AppError from '../../errors/AppError.js'
 
 export async function assinaturaRoutes(fastify) {
 
@@ -8,6 +9,10 @@ export async function assinaturaRoutes(fastify) {
 
     fastify.register(async function (fastify) {
         fastify.addHook('preHandler', authenticate)
+        // Afiliado não tem assinatura (e consultar criaria uma para ele).
+        fastify.addHook('preHandler', async (req) => {
+            if (req.user?.role === 'afiliado') throw new AppError('Conta de afiliado não tem assinatura', 403)
+        })
 
         fastify.get('/assinaturas/atual', AssinaturaController.getAtual)
 

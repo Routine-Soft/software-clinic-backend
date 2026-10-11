@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import UserModel from './user.model.js'
 import AssinaturaModel from '../assinatura/assinatura.model.js'
 import PagamentoModel from '../assinatura/pagamento.model.js'
+import IndicacaoModel from '../indicacao/indicacao.model.js'
 import PlanoModel from '../plano/plano.model.js'
 import ProfissionalModel from '../profissional/profissional.model.js'
 import PacienteModel from '../paciente/paciente.model.js'
@@ -278,6 +279,7 @@ export const ClinicaAdminService = {
 
         await AssinaturaModel.deleteMany({ tenantId: id })
         await PagamentoModel.deleteMany({ tenantId: id })
+        await IndicacaoModel.deleteMany({ $or: [{ indicadorTenantId: id }, { indicadoTenantId: id }] })
         return null
     },
 

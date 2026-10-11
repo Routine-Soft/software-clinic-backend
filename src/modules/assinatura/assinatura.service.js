@@ -8,6 +8,7 @@ import { interpretarDocumento } from './documento.js'
 import PlanoModel from '../plano/plano.model.js'
 import UserModel from '../user/user.model.js'
 import AppError from '../../errors/AppError.js'
+import { IndicacaoService } from '../indicacao/indicacao.service.js'
 
 // MP_API_URL existe só para apontar os testes automatizados para um Mercado Pago falso.
 const MP_API = process.env.MP_API_URL || 'https://api.mercadopago.com'
@@ -112,6 +113,7 @@ function pagamentoParaDTO(pagamento) {
         id: pagamento._id,
         status: pagamento.status,
         valor: pagamento.valor,
+        descontoIndicacao: pagamento.descontoIndicacao ?? 0,
         qrCode: pagamento.qrCode,
         qrCodeBase64: pagamento.qrCodeBase64,
         expiraEm: pagamento.expiraEm,
@@ -242,7 +244,7 @@ export function aplicarCartaoAgendado(assinatura, preapproval) {
 // Corpo da assinatura recorrente no Mercado Pago. inicio: primeira cobrança numa data futura (troca do Pix para o cartão).
 export function corpoDaAssinaturaNoCartao({ assinatura, plano, emailPagador, inicio = null }) {
     const body = {
-        reason: `Assinatura SoftwareClinic - ${plano.nome}`,
+        reason: `Assinatura Sonelia - ${plano.nome}`,
         external_reference: assinatura._id.toString(),
         // No ambiente de teste do Mercado Pago o pagador precisa ser um usuário de teste (comprador).
         // MP_TEST_PAYER_EMAIL permite testar sem mudar o e-mail da clínica; em produção fica vazio.
@@ -507,10 +509,33 @@ export const AssinaturaService = {
             await antigo.save()
         }
 
+        // Descontos de indicação guardados (somados): o Pix já sai com o valor menor. Só são gastos quando este Pix for pago.
+        const { indicacoes: creditos, total: desconto } = await IndicacaoService.descontosDisponiveis(tenantId, plano.preco)
+        const valor = plano.preco - desconto
+
+        // O crédito cobre a mensalidade inteira: não há Pix a pagar, o período é liberado na hora.
+        if (valor <= 0) {
+            const pagamento = await PagamentoModel.create({
+                tenantId,
+                assinaturaId: assinatura._id,
+                planoId: plano._id,
+                metodo: 'credito',
+                mercadoPagoPaymentId: `credito-${randomUUID()}`,
+                status: 'aprovado',
+                aprovadoEm: new Date(),
+                valor: 0,
+                descontoIndicacao: desconto,
+                indicacaoIds: creditos.map((c) => c._id),
+            })
+            await IndicacaoService.usar(pagamento.indicacaoIds, pagamento._id)
+            await this.liberarAcessoPix(pagamento)
+            return pagamentoParaDTO(pagamento)
+        }
+
         const expiraEm = new Date(Date.now() + PIX_VALIDADE_MINUTOS * 60 * 1000)
         const corpo = {
-            transaction_amount: plano.preco,
-            description: `Assinatura SoftwareClinic - ${plano.nome} (${PIX_DIAS_DE_ACESSO} dias)`,
+            transaction_amount: valor,
+            description: `Assinatura Sonelia - ${plano.nome} (${PIX_DIAS_DE_ACESSO} dias)${desconto ? ' - desconto de indicação' : ''}`,
             payment_method_id: 'pix',
             date_of_expiration: expiracaoComFuso(expiraEm),
             external_reference: assinatura._id.toString(),
@@ -542,7 +567,9 @@ export const AssinaturaService = {
             assinaturaId: assinatura._id,
             planoId: plano._id,
             mercadoPagoPaymentId: String(payment.id),
-            valor: plano.preco,
+            valor,
+            descontoIndicacao: desconto,
+            indicacaoIds: creditos.map((c) => c._id),
             qrCode: dados.qr_code,
             qrCodeBase64: dados.qr_code_base64 ?? null,
             ticketUrl: dados.ticket_url ?? null,
@@ -603,6 +630,8 @@ export const AssinaturaService = {
         if (!aprovado) return pagamento
 
         await this.liberarAcessoPix(aprovado)
+        await IndicacaoService.liberarPeloPagamento(aprovado.tenantId, aprovado._id)
+        await IndicacaoService.usar(aprovado.indicacaoIds, aprovado._id)
         return aprovado
     },
 
@@ -656,8 +685,52 @@ export const AssinaturaService = {
         await assinatura.save()
     },
 
+    // Cartão: a cobrança mensal no Mercado Pago tem valor fixo, então os descontos de indicação (somados, até o
+    // valor da mensalidade) são devolvidos no mesmo cartão logo depois de a mensalidade ser aprovada.
+    // O desconto é gravado no pagamento antes da devolução: assim o aviso de "devolvido" que o Mercado Pago manda
+    // em seguida é reconhecido como nosso. Se a devolução falhar, tudo volta como estava.
+    async devolverDescontoNoCartao(tenantId, pagamento, payment) {
+        const valorCobrado = Number(payment.transaction_amount)
+        const { indicacoes } = await IndicacaoService.descontosDisponiveis(tenantId, valorCobrado)
+        const usados = await IndicacaoService.usar(indicacoes.map((i) => i._id), pagamento._id)
+        if (!usados.length) return
+
+        const total = usados.reduce((soma, i) => soma + i.valor, 0)
+        await PagamentoModel.updateOne(
+            { _id: pagamento._id },
+            { $set: { descontoIndicacao: total, indicacaoIds: usados.map((i) => i._id), valor: valorCobrado - total } }
+        )
+
+        try {
+            const devolucao = await chamarMercadoPago('POST', `/v1/payments/${payment.id}/refunds`, {
+                corpo: { amount: total },
+                idempotencyKey: `indicacao-${pagamento._id}`,
+            })
+            await PagamentoModel.updateOne({ _id: pagamento._id }, { $set: { devolucaoMercadoPagoId: String(devolucao.id ?? '') } })
+        } catch (error) {
+            console.error(`Falha ao devolver o desconto de indicação do pagamento ${payment.id}:`, error.message)
+            await PagamentoModel.updateOne({ _id: pagamento._id }, { $set: { descontoIndicacao: 0, indicacaoIds: [], valor: valorCobrado } })
+            await IndicacaoService.devolver(pagamento._id)
+        }
+    },
+
     async processarWebhookPayment(paymentId) {
         const payment = await buscarNoMercadoPago(`/v1/payments/${paymentId}`)
+
+        // Dinheiro devolvido ao cliente (desistência em 7 dias) ou contestado no cartão: o pagamento deixa de contar
+        // e o prêmio de indicação/comissão que ele liberou, se ainda não foi pago, volta a esperar.
+        // Exceção: a devolução total feita por nós mesmos, quando o crédito de indicação cobriu a mensalidade inteira.
+        if (['refunded', 'charged_back'].includes(payment.status)) {
+            const nossa = payment.status === 'refunded'
+                && await PagamentoModel.exists({ mercadoPagoPaymentId: String(payment.id), descontoIndicacao: { $gte: Number(payment.transaction_amount) } })
+            if (nossa) return
+            const pagamento = await PagamentoModel.findOneAndUpdate(
+                { mercadoPagoPaymentId: String(payment.id), status: { $ne: 'devolvido' } },
+                { $set: { status: 'devolvido' } }
+            )
+            if (pagamento) await IndicacaoService.cancelarPorPagamento(pagamento._id)
+            return
+        }
 
         // Pix avulso: identificado pelo id do pagamento que guardamos ao gerar o QR Code.
         if (payment.payment_method_id === 'pix') {
@@ -681,7 +754,7 @@ export const AssinaturaService = {
 
             // Registro da cobrança para a receita do painel do super_admin. O Mercado Pago pode reenviar o mesmo
             // aviso mais de uma vez; o upsert por mercadoPagoPaymentId garante que cada cobrança conte só uma vez.
-            await PagamentoModel.findOneAndUpdate(
+            const registro = await PagamentoModel.findOneAndUpdate(
                 { mercadoPagoPaymentId: String(payment.id) },
                 {
                     $setOnInsert: {
@@ -694,8 +767,16 @@ export const AssinaturaService = {
                         aprovadoEm: new Date(),
                     },
                 },
-                { upsert: true }
+                { upsert: true, returnDocument: 'after', includeResultMetadata: true }
             )
+
+            // Só na primeira vez que esta cobrança chega (o aviso pode se repetir).
+            // Mês pago inteiro com crédito (valor final zero) não conta como pagamento para quem indicou esta clínica.
+            if (!registro.lastErrorObject?.updatedExisting) {
+                await this.devolverDescontoNoCartao(assinatura.tenantId, registro.value, payment)
+                const final = await PagamentoModel.findById(registro.value._id, 'valor')
+                if (final.valor > 0) await IndicacaoService.liberarPeloPagamento(assinatura.tenantId, registro.value._id)
+            }
         } else if (['rejected', 'cancelled'].includes(payment.status)) {
             // Primeiro pagamento recusado (nunca houve período pago): não é atraso. Continua pendente até o Mercado Pago
             // cancelar a assinatura (o aviso da assinatura devolve ao gratuito) ou o cliente tentar de novo/desistir.
