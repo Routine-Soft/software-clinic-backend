@@ -6,6 +6,8 @@ const planoSchema = new mongoose.Schema({
     preco: { type: Number, required: true, default: 0 },
     duracaoDiasTrial: { type: Number, default: null },
     ativo: { type: Boolean, default: true },
+    // Plano para quem atende sozinho: só o dono da conta usa o sistema (um profissional, sem recepção nem equipe).
+    individual: { type: Boolean, default: false },
 
 }, { timestamps: true });
 

@@ -2,7 +2,8 @@ import argon2 from 'argon2'
 import mongoose from 'mongoose'
 import UserModel from '../user/user.model.js'
 import IndicacaoModel from '../indicacao/indicacao.model.js'
-import { IndicacaoService, COMISSAO_AFILIADO, DIAS_DE_CARENCIA } from '../indicacao/indicacao.service.js'
+import { IndicacaoService, COMISSAO_AFILIADO_PERCENTUAL, DIAS_DE_CARENCIA, comissaoDoPlano } from '../indicacao/indicacao.service.js'
+import PlanoModel from '../plano/plano.model.js'
 import { criarAfiliadoDTO, dadosDeAfiliadoDTO } from './afiliado.dto.js'
 import AppError from '../../errors/AppError.js'
 
@@ -102,7 +103,10 @@ export const AfiliadoService = {
         return {
             codigo: await IndicacaoService.obterCodigoAfiliado(afiliadoId),
             ativo: afiliado.afiliadoAtivo !== false,
-            comissaoPorClinica: COMISSAO_AFILIADO,
+            comissaoPercentual: COMISSAO_AFILIADO_PERCENTUAL,
+            // Quanto o afiliado ganha em cada plano à venda hoje.
+            comissoesPorPlano: (await PlanoModel.find({ tipo: 'pago', ativo: true }).sort({ preco: 1 }))
+                .map((p) => ({ plano: p.nome, preco: p.preco, comissao: comissaoDoPlano(p.preco) })),
             diasDeCarencia: DIAS_DE_CARENCIA,
             chavePix: afiliado.chavePix,
             ...resumir(await comissoesDe(afiliadoId)),

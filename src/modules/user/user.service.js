@@ -5,6 +5,7 @@ import UserModel from './user.model.js'
 import { AssinaturaService } from '../assinatura/assinatura.service.js'
 import { GoogleAuth } from './google-auth.js'
 import { IndicacaoService } from '../indicacao/indicacao.service.js'
+import { exigirPlanoComEquipe } from '../plano/plano.limites.js'
 
 import { createUserDTO, updateUserDTO, updateMeDTO, loginUserDTO } from './user.dto.js'
 import AppError from '../../errors/AppError.js'
@@ -45,6 +46,7 @@ export const UserService = {
     },
 
     async createUsuarioDaClinica(tenantId, body) {
+        await exigirPlanoComEquipe(tenantId)
         const userDTO = createUserDTO(body)
         userDTO.password = await argon2.hash(userDTO.password)
         userDTO.role = ['profissional', 'recepcao'].includes(body.role) ? body.role : 'recepcao'

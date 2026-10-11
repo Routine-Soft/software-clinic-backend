@@ -1,12 +1,13 @@
 import { randomInt } from 'node:crypto'
 import IndicacaoModel from './indicacao.model.js'
 import UserModel from '../user/user.model.js'
+import PagamentoModel from '../assinatura/pagamento.model.js'
 import AppError from '../../errors/AppError.js'
 
 // Desconto que a clínica ganha, na próxima mensalidade, por cada clínica indicada que pagar.
 export const VALOR_POR_INDICACAO = 100
-// Comissão do afiliado por clínica que pagar a primeira mensalidade.
-export const COMISSAO_AFILIADO = 100
+// Comissão do afiliado: esta porcentagem da primeira mensalidade da clínica (o valor do plano que ela assinou).
+export const COMISSAO_AFILIADO_PERCENTUAL = 50
 // O Código de Defesa do Consumidor (art. 49) dá 7 dias para desistir de compra feita pela internet e receber
 // o dinheiro de volta. A comissão só pode ser paga depois disso: a partir do 8º dia após o pagamento.
 export const DIAS_DE_CARENCIA = 7
@@ -18,6 +19,17 @@ const TAMANHO_CODIGO = 6
 
 function gerarCodigo() {
     return Array.from({ length: TAMANHO_CODIGO }, () => ALFABETO[randomInt(ALFABETO.length)]).join('')
+}
+
+export function comissaoDoPlano(preco) {
+    return Math.round(preco * COMISSAO_AFILIADO_PERCENTUAL) / 100
+}
+
+// Preço cheio do plano pago (antes de qualquer desconto de indicação), para calcular a comissão.
+async function precoDoPlanoPago(pagamentoId) {
+    const pagamento = await PagamentoModel.findById(pagamentoId, 'planoId valor descontoIndicacao').populate('planoId', 'preco')
+    if (!pagamento) return 0
+    return pagamento.planoId?.preco ?? pagamento.valor + (pagamento.descontoIndicacao ?? 0)
 }
 
 export function normalizarCodigo(codigo) {
@@ -107,23 +119,27 @@ export const IndicacaoService = {
             tipo: indicador.tipo,
             indicadorTenantId: indicador.indicadorId,
             indicadoTenantId,
-            valor: indicador.tipo === 'afiliado' ? COMISSAO_AFILIADO : VALOR_POR_INDICACAO,
+            // A comissão do afiliado depende do plano que a clínica assinar: é calculada no primeiro pagamento.
+            valor: indicador.tipo === 'afiliado' ? 0 : VALOR_POR_INDICACAO,
         }).catch((error) => {
             if (error.code !== 11000) throw error
         })
     },
 
     // Primeiro pagamento aprovado da clínica indicada: libera o desconto de quem indicou (uma vez só).
-    // Na comissão de afiliado, `disponivelEm` marca quando acaba o prazo de desistência do cliente.
+    // Na comissão de afiliado, `disponivelEm` marca quando acaba o prazo de desistência do cliente, e o valor é a
+    // porcentagem do plano pago.
     async liberarPeloPagamento(indicadoTenantId, pagamentoId) {
         const indicacao = await IndicacaoModel.findOne({ indicadoTenantId, status: 'aguardando' }, 'tipo')
         if (!indicacao) return
 
         const agora = new Date()
-        const carencia = indicacao.tipo === 'afiliado' ? (DIAS_DE_CARENCIA + 1) * DIA_EM_MS : 0
+        const afiliado = indicacao.tipo === 'afiliado'
+        const carencia = afiliado ? (DIAS_DE_CARENCIA + 1) * DIA_EM_MS : 0
+        const comissao = afiliado ? { valor: comissaoDoPlano(await precoDoPlanoPago(pagamentoId)) } : {}
         await IndicacaoModel.updateOne(
             { _id: indicacao._id, status: 'aguardando' },
-            { $set: { status: 'liberada', liberadaEm: agora, liberadaPorPagamentoId: pagamentoId, disponivelEm: new Date(agora.getTime() + carencia) } }
+            { $set: { status: 'liberada', liberadaEm: agora, liberadaPorPagamentoId: pagamentoId, disponivelEm: new Date(agora.getTime() + carencia), ...comissao } }
         )
     },
 

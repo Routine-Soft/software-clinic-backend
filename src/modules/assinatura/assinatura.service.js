@@ -9,6 +9,7 @@ import PlanoModel from '../plano/plano.model.js'
 import UserModel from '../user/user.model.js'
 import AppError from '../../errors/AppError.js'
 import { IndicacaoService } from '../indicacao/indicacao.service.js'
+import { exigirCabeNoIndividual } from '../plano/plano.limites.js'
 
 // MP_API_URL existe só para apontar os testes automatizados para um Mercado Pago falso.
 const MP_API = process.env.MP_API_URL || 'https://api.mercadopago.com'
@@ -353,8 +354,14 @@ export const AssinaturaService = {
     },
 
     // Plano escolhido pelo cliente; sem escolha, mantém o plano pago que a assinatura já tem (ex.: "refazer pagamento")
-    // ou, na falta dele, o plano pago ativo mais barato.
+    // ou, na falta dele, o plano pago ativo mais barato. O plano Individual só serve para quem não tem equipe.
     async escolherPlanoPago(assinatura, planoId) {
+        const plano = await this.buscarPlanoPago(assinatura, planoId)
+        if (plano.individual) await exigirCabeNoIndividual(assinatura.tenantId, plano)
+        return plano
+    },
+
+    async buscarPlanoPago(assinatura, planoId) {
         if (planoId) {
             const plano = mongoose.isValidObjectId(planoId)
                 ? await PlanoModel.findOne({ _id: planoId, tipo: 'pago', ativo: true })
