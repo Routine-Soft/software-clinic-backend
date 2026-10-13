@@ -1,6 +1,17 @@
 import { UserService } from './user.service.js'
+import { RecuperarSenhaService } from './recuperar-senha.service.js'
 
 export const UserController = {
+    async pedirLinkDeSenha(req, reply) {
+        await RecuperarSenhaService.pedirLink(req.body?.email)
+        return reply.send({ data: null, message: 'Se este e-mail tiver conta na Sonelia, você vai receber o link em alguns minutos.' })
+    },
+
+    async redefinirSenhaPeloLink(req, reply) {
+        await RecuperarSenhaService.redefinir(req.body?.codigo, req.body?.novaSenha)
+        return reply.send({ data: null, message: 'Senha alterada. Entre com a senha nova.' })
+    },
+
     async getAllUsers(req, reply) {
         const users = await UserService.findAll()
         return reply.send({ data: users })

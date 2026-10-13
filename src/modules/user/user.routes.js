@@ -9,6 +9,9 @@ export async function userRoutes(fastify) {
     fastify.post('/users/login', UserController.loginUser)
     fastify.post('/users/google', UserController.entrarComGoogle)
     fastify.post('/users/refresh', UserController.refreshToken)
+    // "Esqueci a senha": link por e-mail (Resend).
+    fastify.post('/users/senha/esqueci', UserController.pedirLinkDeSenha)
+    fastify.post('/users/senha/redefinir', UserController.redefinirSenhaPeloLink)
 
     fastify.register(async function (fastify) {
 
