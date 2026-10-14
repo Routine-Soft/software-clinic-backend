@@ -2,6 +2,8 @@ import { PlanoController } from './plano.controller.js'
 import { authenticate, authorize } from '../shared/middlewares/auth.middleware.js'
 
 export async function planoRoutes(fastify) {
+    // Público: a landing mostra os planos à venda.
+    fastify.get('/planos/publicos', PlanoController.publicos)
 
     fastify.register(async function (fastify) {
         fastify.addHook('preHandler', authenticate)

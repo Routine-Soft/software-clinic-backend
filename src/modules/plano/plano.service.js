@@ -7,6 +7,11 @@ export const PlanoService = {
         return await PlanoModel.find()
     },
 
+    // Para a landing (sem login): só os planos pagos à venda, com o que cada um inclui.
+    async publicos() {
+        return await PlanoModel.find({ tipo: 'pago', ativo: true }, 'nome preco descricao recursos individual').sort({ preco: 1 })
+    },
+
     async findById(id) {
         const plano = await PlanoModel.findById(id)
         if (!plano) {
