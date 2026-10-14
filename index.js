@@ -21,6 +21,8 @@ import { planoRoutes } from "./src/modules/plano/plano.routes.js";
 import { assinaturaRoutes } from "./src/modules/assinatura/assinatura.routes.js";
 import { printRoutes } from "./src/modules/print/print.routes.js";
 import { comissaoRoutes } from "./src/modules/comissao/comissao.routes.js";
+import { chamadaRoutes } from "./src/modules/chamada/chamada.routes.js";
+import { painelTvRoutes } from "./src/modules/painel-tv/painel-tv.routes.js";
 import { avaliacaoNeuropsicologicaRoutes } from "./src/modules/avaliacao-neuropsicologica/avaliacao-neuropsicologica.routes.js";
 
 const fastify = Fastify({ logger: true })
@@ -61,6 +63,8 @@ await fastify.register(assinaturaRoutes, { prefix: '/api' })
 await fastify.register(printRoutes, { prefix: '/api' })
 await fastify.register(comissaoRoutes, { prefix: '/api' })
 await fastify.register(avaliacaoNeuropsicologicaRoutes, { prefix: '/api' })
+await fastify.register(chamadaRoutes, { prefix: '/api' })
+await fastify.register(painelTvRoutes, { prefix: '/api' })
 
 const start = async () => {
   try {

@@ -9,6 +9,8 @@ import ProfissionalModel from '../profissional/profissional.model.js'
 import PacienteModel from '../paciente/paciente.model.js'
 import EmpresaModel from '../empresa/empresa.model.js'
 import AgendaModel from '../agenda/agenda.model.js'
+import PainelTvModel from '../painel-tv/painel-tv.model.js'
+import ChamadaModel from '../chamada/chamada.model.js'
 import { AssinaturaService, avaliarAcesso } from '../assinatura/assinatura.service.js'
 import AppError from '../../errors/AppError.js'
 
@@ -280,6 +282,9 @@ export const ClinicaAdminService = {
         await AssinaturaModel.deleteMany({ tenantId: id })
         await PagamentoModel.deleteMany({ tenantId: id })
         await IndicacaoModel.deleteMany({ $or: [{ indicadorTenantId: id }, { indicadoTenantId: id }] })
+        // As TVs da clínica param de mostrar o painel (e as chamadas, que têm nomes de pacientes, somem).
+        await PainelTvModel.deleteMany({ tenantId: id })
+        await ChamadaModel.deleteMany({ tenantId: id })
         return null
     },
 

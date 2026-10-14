@@ -13,6 +13,8 @@ const profissionalSchema = new mongoose.Schema({
         },
     },
     usuarioId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', default: null },
+    // Mostra o nome do profissional na TV da sala de espera ao chamar o paciente (senão, só a sala).
+    exibirNaTv: { type: Boolean, default: true },
 
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
 

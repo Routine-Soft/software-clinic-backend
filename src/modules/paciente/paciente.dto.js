@@ -24,6 +24,7 @@ export function createPacienteDTO(body) {
         empresaId: body.empresaId || null,
         responsaveis: responsaveisDTO(body.responsaveis),
         teste: body.teste === true,
+        ...(body.nomeNaTv ? { nomeNaTv: body.nomeNaTv } : {}),
     }
 }
 
@@ -37,6 +38,7 @@ export function updatePacienteDTO(body) {
         'dataNascimento',
         'convenioId',
         'empresaId',
+        'nomeNaTv',
     ]
     const dto = Object.fromEntries(
         Object.entries(body).filter(([key]) => allowed.includes(key))
