@@ -12,7 +12,7 @@ export async function convenioRoutes(fastify) {
         fastify.get('/convenios', ConvenioController.getAllConvenios)
         fastify.get('/convenios/:id', ConvenioController.getConvenioById)
         // Todos da clínica leem; só o admin altera (os convênios definem preços e comissões nos serviços).
-        const soAdmin = { preHandler: authorize(['admin', 'super_admin']) }
+        const soAdmin = { preHandler: authorize(['admin', 'super_admin', 'recepcao']) }
         fastify.post('/convenios', soAdmin, ConvenioController.createConvenio)
         fastify.patch('/convenios/:id', soAdmin, ConvenioController.updateConvenio)
         fastify.delete('/convenios/:id', soAdmin, ConvenioController.deleteConvenio)

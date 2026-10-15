@@ -11,8 +11,8 @@ export async function profissionalRoutes(fastify) {
 
         fastify.get('/profissionais', ProfissionalController.getAllProfissionais)
         fastify.get('/profissionais/:id', ProfissionalController.getProfissionalById)
-        // Todos da clínica leem (agenda); só o admin cadastra e vincula logins, porque o vínculo dá acesso às comissões.
-        const soAdmin = { preHandler: authorize(['admin', 'super_admin']) }
+        // Todos da clínica leem (agenda); admin e recepção cadastram e vinculam logins (o profissional, não).
+        const soAdmin = { preHandler: authorize(['admin', 'super_admin', 'recepcao']) }
         fastify.post('/profissionais', soAdmin, ProfissionalController.createProfissional)
         fastify.patch('/profissionais/:id', soAdmin, ProfissionalController.updateProfissional)
         fastify.delete('/profissionais/:id', soAdmin, ProfissionalController.deleteProfissional)

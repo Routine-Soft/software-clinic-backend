@@ -6,6 +6,8 @@ import { AssinaturaService } from '../../assinatura/assinatura.service.js'
 // 402 = "pagamento necessário"; o código permite ao frontend mostrar a tela de assinatura.
 export async function exigirAssinaturaAtiva(req) {
     if (req.user?.role === 'super_admin') return
+    // Afiliado não é clínica: não tem assinatura nem acesso às telas da clínica.
+    if (req.user?.role === 'afiliado') throw new AppError('Conta de afiliado não acessa as telas da clínica', 403)
 
     const { liberado, motivo } = await AssinaturaService.verificarAcesso(req.user.tenantId)
     if (!liberado) {

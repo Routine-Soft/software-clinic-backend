@@ -3,6 +3,10 @@ import { ProntuarioService } from './prontuario.service.js'
 const contexto = (req) => ({ usuario: req.user, ip: req.ip })
 
 export const ProntuarioController = {
+    async totalEmAtendimento(req, reply) {
+        return reply.send({ data: await ProntuarioService.totalEmAtendimento(req.user) })
+    },
+
     async acesso(req, reply) {
         return reply.send({ data: await ProntuarioService.acesso(contexto(req)) })
     },

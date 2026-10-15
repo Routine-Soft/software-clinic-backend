@@ -12,12 +12,17 @@ import { empresaRoutes } from "./src/modules/empresa/empresa.routes.js";
 import { avaliacaoNr01Routes } from "./src/modules/avaliacao-nr01/avaliacao-nr01.routes.js";
 import { servicoRoutes } from "./src/modules/servico/servico.routes.js";
 import { agendaRoutes } from "./src/modules/agenda/agenda.routes.js";
+import { reuniaoRoutes } from "./src/modules/reuniao/reuniao.routes.js";
+import { indicacaoRoutes } from "./src/modules/indicacao/indicacao.routes.js";
+import { afiliadoRoutes } from "./src/modules/afiliado/afiliado.routes.js";
 import { prontuarioRoutes } from "./src/modules/prontuario/prontuario.routes.js";
 import { listaEsperaRoutes } from "./src/modules/lista-espera/lista-espera.routes.js";
 import { planoRoutes } from "./src/modules/plano/plano.routes.js";
 import { assinaturaRoutes } from "./src/modules/assinatura/assinatura.routes.js";
 import { printRoutes } from "./src/modules/print/print.routes.js";
 import { comissaoRoutes } from "./src/modules/comissao/comissao.routes.js";
+import { chamadaRoutes } from "./src/modules/chamada/chamada.routes.js";
+import { painelTvRoutes } from "./src/modules/painel-tv/painel-tv.routes.js";
 import { avaliacaoNeuropsicologicaRoutes } from "./src/modules/avaliacao-neuropsicologica/avaliacao-neuropsicologica.routes.js";
 import { lembreteWhatsappRoutes } from "./src/modules/lembrete-whatsapp/lembrete.routes.js";
 import { iniciarLembretesWhatsapp } from "./src/modules/lembrete-whatsapp/lembrete.agendador.js";
@@ -50,6 +55,9 @@ await fastify.register(empresaRoutes, { prefix: '/api' })
 await fastify.register(avaliacaoNr01Routes, { prefix: '/api' })
 await fastify.register(servicoRoutes, { prefix: '/api' })
 await fastify.register(agendaRoutes, { prefix: '/api' })
+await fastify.register(reuniaoRoutes, { prefix: '/api' })
+await fastify.register(indicacaoRoutes, { prefix: '/api' })
+await fastify.register(afiliadoRoutes, { prefix: '/api' })
 await fastify.register(prontuarioRoutes, { prefix: '/api' })
 await fastify.register(listaEsperaRoutes, { prefix: '/api' })
 await fastify.register(planoRoutes, { prefix: '/api' })
@@ -57,6 +65,8 @@ await fastify.register(assinaturaRoutes, { prefix: '/api' })
 await fastify.register(printRoutes, { prefix: '/api' })
 await fastify.register(comissaoRoutes, { prefix: '/api' })
 await fastify.register(avaliacaoNeuropsicologicaRoutes, { prefix: '/api' })
+await fastify.register(chamadaRoutes, { prefix: '/api' })
+await fastify.register(painelTvRoutes, { prefix: '/api' })
 await fastify.register(lembreteWhatsappRoutes, { prefix: '/api' })
 
 const start = async () => {

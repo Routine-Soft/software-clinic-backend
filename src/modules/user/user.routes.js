@@ -9,6 +9,9 @@ export async function userRoutes(fastify) {
     fastify.post('/users/login', UserController.loginUser)
     fastify.post('/users/google', UserController.entrarComGoogle)
     fastify.post('/users/refresh', UserController.refreshToken)
+    // "Esqueci a senha": link por e-mail (Resend).
+    fastify.post('/users/senha/esqueci', UserController.pedirLinkDeSenha)
+    fastify.post('/users/senha/redefinir', UserController.redefinirSenhaPeloLink)
 
     fastify.register(async function (fastify) {
 
@@ -25,6 +28,7 @@ export async function userRoutes(fastify) {
         fastify.get('/users/admins/resumo', soSuperAdmin, ClinicaAdminController.resumo)
         fastify.get('/users/admins/receita', soSuperAdmin, ClinicaAdminController.receita)
         fastify.get('/users/admins', soSuperAdmin, ClinicaAdminController.listar)
+        fastify.get('/users/admins/:id/pagamentos', soSuperAdmin, ClinicaAdminController.historicoDePagamentos)
         fastify.post('/users/admins', soSuperAdmin, ClinicaAdminController.criar)
         fastify.patch('/users/admins/:id', soSuperAdmin, ClinicaAdminController.editar)
         fastify.delete('/users/admins/:id', soSuperAdmin, ClinicaAdminController.apagar)
@@ -35,30 +39,32 @@ export async function userRoutes(fastify) {
         fastify.patch('/users/admins/:id/whatsapp', soSuperAdmin, ClinicaAdminController.definirLembretesWhatsapp)
         fastify.get('/users/tenant',
             {
-                preHandler: authorize(['admin', 'super_admin'])
+                preHandler: authorize(['admin', 'super_admin', 'recepcao'])
             }, UserController.getUsersDaClinica)
         fastify.post('/users/tenant',
             {
-                preHandler: authorize(['admin', 'super_admin'])
+                preHandler: authorize(['admin', 'super_admin', 'recepcao'])
             }, UserController.createUsuarioDaClinica)
         fastify.patch('/users/tenant/:id',
             {
-                preHandler: authorize(['admin', 'super_admin'])
+                preHandler: authorize(['admin', 'super_admin', 'recepcao'])
             }, UserController.updateUsuarioDaClinica)
         fastify.patch('/users/tenant/:id/senha',
             {
-                preHandler: authorize(['admin', 'super_admin'])
+                preHandler: authorize(['admin', 'super_admin', 'recepcao'])
             }, UserController.resetPasswordUsuarioDaClinica)
         fastify.delete('/users/tenant/:id',
             {
-                preHandler: authorize(['admin', 'super_admin'])
+                preHandler: authorize(['admin', 'super_admin', 'recepcao'])
             }, UserController.deleteUsuarioDaClinica)
         fastify.get('/users/me', UserController.getMe)
         fastify.patch('/users/me', UserController.updateMe)
         fastify.post('/users/me/password', UserController.updateMyPassword)
-        fastify.get('/users/:id', UserController.getUserById)
-        fastify.patch('/users/:id', UserController.updateUser)
-        fastify.post('/users/:id/password', UserController.updatePassword)
+        // Por id, qualquer conta da plataforma: só o super_admin. Cada pessoa altera a própria conta em /users/me,
+        // e o admin altera os usuários da clínica em /users/tenant.
+        fastify.get('/users/:id', soSuperAdmin, UserController.getUserById)
+        fastify.patch('/users/:id', soSuperAdmin, UserController.updateUser)
+        fastify.post('/users/:id/password', soSuperAdmin, UserController.updatePassword)
         fastify.delete('/users/:id', {
                 preHandler: authorize(['super_admin'])
             }, UserController.deleteUser)

@@ -30,6 +30,17 @@ async function contextoDe(contexto) {
 
 export const ProntuarioService = {
     // Diz ao site se o login pode abrir prontuários, sem erro: a agenda e a home usam para decidir o que mostrar.
+    // Só a quantidade de atendimentos abertos agora na clínica, sem nenhum dado do paciente nem texto clínico:
+    // serve para a recepção e o admin acompanharem o movimento sem ter acesso aos prontuários.
+    async totalEmAtendimento(usuario) {
+        const total = await ProntuarioModel.countDocuments({
+            tenantId: usuario.tenantId,
+            atendimentoIniciadoEm: { $ne: null },
+            atendimentoFinalizadoEm: null,
+        })
+        return { total }
+    },
+
     async acesso(contexto) {
         const profissional = await ProntuarioAcesso.profissionalDoUsuario(contexto.usuario)
         return { profissional: profissional ? { _id: profissional._id, nome: profissional.nome } : null }

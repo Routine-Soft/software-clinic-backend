@@ -1,6 +1,17 @@
 import { UserService } from './user.service.js'
+import { RecuperarSenhaService } from './recuperar-senha.service.js'
 
 export const UserController = {
+    async pedirLinkDeSenha(req, reply) {
+        await RecuperarSenhaService.pedirLink(req.body?.email)
+        return reply.send({ data: null, message: 'Se este e-mail tiver conta na Sonelia, você vai receber o link em alguns minutos.' })
+    },
+
+    async redefinirSenhaPeloLink(req, reply) {
+        await RecuperarSenhaService.redefinir(req.body?.codigo, req.body?.novaSenha)
+        return reply.send({ data: null, message: 'Senha alterada. Entre com a senha nova.' })
+    },
+
     async getAllUsers(req, reply) {
         const users = await UserService.findAll()
         return reply.send({ data: users })
@@ -19,24 +30,24 @@ export const UserController = {
     },
 
     async updateUsuarioDaClinica(req, reply) {
-        const { tenantId } = req.user
+        const { tenantId, role } = req.user
         const { id } = req.params
-        const user = await UserService.updateUsuarioDaClinica(tenantId, id, req.body)
+        const user = await UserService.updateUsuarioDaClinica(tenantId, id, req.body, role)
         return reply.send({ data: user, message: 'Usuário atualizado com sucesso' })
     },
 
     async deleteUsuarioDaClinica(req, reply) {
-        const { tenantId } = req.user
+        const { tenantId, role } = req.user
         const { id } = req.params
-        await UserService.deleteUsuarioDaClinica(tenantId, id)
+        await UserService.deleteUsuarioDaClinica(tenantId, id, role)
         return reply.send({ data: null, message: 'Usuário removido com sucesso' })
     },
 
     async resetPasswordUsuarioDaClinica(req, reply) {
-        const { tenantId } = req.user
+        const { tenantId, role } = req.user
         const { id } = req.params
         const { novaSenha } = req.body
-        await UserService.resetPasswordUsuarioDaClinica(tenantId, id, novaSenha)
+        await UserService.resetPasswordUsuarioDaClinica(tenantId, id, novaSenha, role)
         return reply.send({ data: null, message: 'Senha redefinida com sucesso' })
     },
 

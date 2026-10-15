@@ -5,6 +5,7 @@ export function createProfissionalDTO(body) {
         numeroRegistro: body.numeroRegistro,
         especialidadeIds: Array.isArray(body.especialidadeIds) ? body.especialidadeIds : [],
         usuarioId: body.usuarioId || null,
+        exibirNaTv: body.exibirNaTv !== false,
     }
 }
 
@@ -15,8 +16,11 @@ export function updateProfissionalDTO(body) {
         'numeroRegistro',
         'especialidadeIds',
         'usuarioId',
+        'exibirNaTv',
     ]
-    return Object.fromEntries(
+    const dto = Object.fromEntries(
         Object.entries(body).filter(([key]) => allowed.includes(key))
     )
+    if ('exibirNaTv' in dto) dto.exibirNaTv = dto.exibirNaTv !== false
+    return dto
 }

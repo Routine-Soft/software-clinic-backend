@@ -1,13 +1,36 @@
 import mongoose from 'mongoose'
 
+// Responsável legal (pais, avós, tutor). Usado principalmente para pacientes menores de idade.
+const responsavelSchema = new mongoose.Schema({
+    nome: { type: String, required: true, trim: true },
+    parentesco: { type: String, default: '', trim: true },
+    cpf: { type: String, default: '', trim: true },
+    telefone: { type: String, default: '', trim: true },
+    email: { type: String, default: '', trim: true, lowercase: true },
+}, { _id: false })
+
 const pacienteSchema = new mongoose.Schema({
     nome: { type: String, required: true },
-    telefone: { type: String, required: true },
-    email: { type: String, required: true, trim: true, lowercase: true },
-    cpf: { type: String, required: true },
+    // Obrigatórios para adultos; para menores de idade, o contato pode ser só o dos responsáveis
+    // (a regra fica em paciente.service.js, porque depende da data de nascimento).
+    telefone: { type: String, default: '' },
+    email: { type: String, default: '', trim: true, lowercase: true },
+    // Opcional: nem toda criança tem CPF (aí vale o CPF do responsável, guardado em responsaveis).
+    cpf: { type: String, default: '', trim: true },
     dataNascimento: { type: Date, required: true },
     convenioId: { type: mongoose.Schema.Types.ObjectId, ref: 'convenios', default: null },
     empresaId: { type: mongoose.Schema.Types.ObjectId, ref: 'empresas', default: null },
+    responsaveis: {
+        type: [responsavelSchema],
+        default: [],
+        validate: { validator: (lista) => lista.length <= 2, message: 'Informe no máximo dois responsáveis' },
+    },
+    // Paciente criado só para experimentar o sistema. Só é marcado no cadastro (nunca depois) e, ao ser excluído,
+    // leva junto prontuário, agendamentos e avaliações, sem a guarda de 20 anos que vale para paciente real.
+    teste: { type: Boolean, default: false },
+    // Nome na TV da sala de espera: completo (padrão) ou oculto (só a sala). "abreviado" e "primeiro" são de uma
+    // versão anterior e hoje também mostram o nome completo.
+    nomeNaTv: { type: String, enum: ['completo', 'abreviado', 'primeiro', 'oculto'], default: 'completo' },
     // Consentimento para lembretes de consulta pelo WhatsApp (exigido pela Meta e pela LGPD).
     aceitaWhatsapp: { type: Boolean, default: false },
 
@@ -24,8 +47,12 @@ const pacienteSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// Um mesmo CPF não pode se repetir dentro da mesma clínica (tenant)
-pacienteSchema.index({ tenantId: 1, cpf: 1 }, { unique: true })
+// Um mesmo CPF não pode se repetir dentro da mesma clínica (tenant). Só vale para CPF preenchido:
+// vários pacientes sem CPF convivem normalmente.
+pacienteSchema.index(
+    { tenantId: 1, cpf: 1 },
+    { unique: true, name: 'cpf_unico_preenchido', partialFilterExpression: { cpf: { $gt: '' } } }
+)
 
 export const CAMPOS_PERFIL_CLINICO = [
     'antecedentesClinicos',

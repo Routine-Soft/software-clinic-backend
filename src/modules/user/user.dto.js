@@ -1,3 +1,6 @@
+import { interpretarDocumento } from '../assinatura/documento.js'
+import AppError from '../../errors/AppError.js'
+
 export function createUserDTO(body) {
     return {
         nomeCompleto: body.nomeCompleto,
@@ -23,10 +26,13 @@ export function updateUserDTO(body) {
     )
 }
 
-export function updateMeDTO(body, role) {
+export function updateMeDTO(body, role, ehAfiliado = false) {
     const allowed = ['nomeCompleto', 'email', 'telefone']
     if (['admin', 'super_admin'].includes(role)) {
         allowed.push('nomeEmpresa', 'cnpj')
+    }
+    if (ehAfiliado) {
+        allowed.push('chavePix', 'documento')
     }
 
     const dto = Object.fromEntries(
@@ -34,6 +40,14 @@ export function updateMeDTO(body, role) {
     )
 
     if ('cnpj' in dto) dto.cnpj = dto.cnpj || null
+    if ('chavePix' in dto) {
+        dto.chavePix = String(dto.chavePix ?? '').trim()
+        if (!dto.chavePix) throw new AppError('Informe a chave Pix para receber as comissões', 400)
+    }
+    if ('documento' in dto) {
+        dto.documento = interpretarDocumento(dto.documento)?.numero
+        if (!dto.documento) throw new AppError('Informe um CPF ou CNPJ válido', 400)
+    }
     if ('nomeEmpresa' in dto && !dto.nomeEmpresa) delete dto.nomeEmpresa
 
     return dto

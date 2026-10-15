@@ -16,6 +16,9 @@ const assinaturaSchema = new mongoose.Schema({
     // 'manual': ativada diretamente pelo super_admin (fora do Mercado Pago), sem cobrança futura automática.
     cobranca: { type: String, enum: ['recorrente', 'pix', 'manual'], default: 'recorrente' },
     mercadoPagoPreapprovalId: { type: String, default: null },
+    // Troca do Pix para o cartão: assinatura no cartão criada para só começar a cobrar quando o período pago por Pix
+    // acabar. Enquanto o cliente não conclui o checkout, a assinatura continua como Pix (ver aplicarCartaoAgendado).
+    cartaoAgendadoPreapprovalId: { type: String, default: null },
     proximaCobranca: { type: Date, default: null },
     inadimplenteDesde: { type: Date, default: null },
 

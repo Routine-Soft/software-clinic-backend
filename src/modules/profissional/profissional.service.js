@@ -3,6 +3,7 @@ import ProfissionalModel from './profissional.model.js'
 import UserModel from '../user/user.model.js'
 import { createProfissionalDTO, updateProfissionalDTO } from './profissional.dto.js'
 import AppError from '../../errors/AppError.js'
+import { exigirPlanoComEquipe } from '../plano/plano.limites.js'
 
 // O login vinculado precisa ser desta clínica (profissional, admin ou o super admin que também atende) e só pode
 // pertencer a um profissional.
@@ -34,6 +35,7 @@ export const ProfissionalService = {
     },
 
     async createProfissional(body, tenantId) {
+        await exigirPlanoComEquipe(tenantId, { profissional: true })
         const profissionalDTO = createProfissionalDTO(body)
         await validarUsuarioVinculado(profissionalDTO.usuarioId, tenantId)
         try {

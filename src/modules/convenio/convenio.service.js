@@ -1,7 +1,19 @@
-import ConvenioModel from './convenio.model.js'
+import ConvenioModel, { nomeDoConvenio } from './convenio.model.js'
 import ServicoModel from '../servico/servico.model.js'
 import { createConvenioDTO, updateConvenioDTO } from './convenio.dto.js'
 import AppError from '../../errors/AppError.js'
+
+// "Particular" e "particular" (ou "Unimed" e "UNIMED") são o mesmo convênio: aparecem duplicados no agendamento.
+async function exigirNomeLivre(nome, tenantId, idAtual = null) {
+    if (typeof nome !== 'string' || !nome.trim()) {
+        throw new AppError('Informe o nome do convênio', 400)
+    }
+    const filtro = { tenantId, nome: nomeDoConvenio(nome), ...(idAtual ? { _id: { $ne: idAtual } } : {}) }
+    const existente = await ConvenioModel.findOne(filtro, 'nome').collation({ locale: 'pt', strength: 1 })
+    if (existente) {
+        throw new AppError(`Já existe o convênio "${existente.nome}"`, 409)
+    }
+}
 
 export const ConvenioService = {
     async findAll(tenantId) {
@@ -18,6 +30,7 @@ export const ConvenioService = {
 
     async createConvenio(body, tenantId) {
         const convenioDTO = createConvenioDTO(body)
+        await exigirNomeLivre(convenioDTO.nome, tenantId)
         try {
             return await ConvenioModel.create({ ...convenioDTO, tenantId })
         } catch (error) {
@@ -30,6 +43,7 @@ export const ConvenioService = {
 
     async updateConvenio(id, tenantId, body) {
         const convenioDTO = updateConvenioDTO(body)
+        if ('nome' in convenioDTO) await exigirNomeLivre(convenioDTO.nome, tenantId, id)
         const convenio = await ConvenioModel.findOneAndUpdate(
             { _id: id, tenantId },
             { $set: convenioDTO },

@@ -21,6 +21,11 @@ export const ClinicaAdminController = {
         return reply.send({ data: admins })
     },
 
+    async historicoDePagamentos(req, reply) {
+        const pagamentos = await ClinicaAdminService.historicoDePagamentos(req.params.id)
+        return reply.send({ data: pagamentos })
+    },
+
     async criar(req, reply) {
         const admin = await ClinicaAdminService.criar(req.body)
         return reply.code(201).send({ data: admin, message: 'Administrador cadastrado com sucesso' })

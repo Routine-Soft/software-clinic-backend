@@ -4,12 +4,17 @@ import mongoose from 'mongoose'
 import UserModel from './user.model.js'
 import { AssinaturaService } from '../assinatura/assinatura.service.js'
 import { GoogleAuth } from './google-auth.js'
+import { IndicacaoService } from '../indicacao/indicacao.service.js'
+import { exigirPlanoComEquipe } from '../plano/plano.limites.js'
 
 import { createUserDTO, updateUserDTO, updateMeDTO, loginUserDTO } from './user.dto.js'
 import AppError from '../../errors/AppError.js'
 
 // `via: 'google'` marca a sessão aberta pelo Google: ela pode trocar a senha sem informar a atual,
 // e é assim que quem esqueceu a senha recupera o acesso.
+// Versão dos Termos de uso da clínica aceita no cadastro (muda quando o texto mudar).
+const TERMOS_CLINICA_VERSAO = '2026-10-11'
+
 async function emitirSessao(user, via = 'senha') {
     const payload = { id: user._id, tenantId: user.tenantId, role: user.role, via }
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' })
@@ -28,7 +33,20 @@ export const UserService = {
         return await UserModel.find({ tenantId })
     },
 
+    // A recepção também administra os usuários da clínica, mas não as contas de administrador: trocar a senha
+    // do dono daria a ela tudo o que só o admin pode (como cancelar a assinatura).
+    async exigirPodeAlterarUsuario(tenantId, id, papelDeQuemAltera) {
+        const alvo = await UserModel.findOne({ _id: id, tenantId }, 'role')
+        if (!alvo) {
+            throw new AppError('Usuário não encontrado', 404)
+        }
+        if (papelDeQuemAltera === 'recepcao' && ['admin', 'super_admin'].includes(alvo.role)) {
+            throw new AppError('Só o administrador da clínica pode alterar a conta de um administrador', 403)
+        }
+    },
+
     async createUsuarioDaClinica(tenantId, body) {
+        await exigirPlanoComEquipe(tenantId)
         const userDTO = createUserDTO(body)
         userDTO.password = await argon2.hash(userDTO.password)
         userDTO.role = ['profissional', 'recepcao'].includes(body.role) ? body.role : 'recepcao'
@@ -48,7 +66,8 @@ export const UserService = {
         }
     },
 
-    async updateUsuarioDaClinica(tenantId, id, body) {
+    async updateUsuarioDaClinica(tenantId, id, body, papelDeQuemAltera) {
+        await this.exigirPodeAlterarUsuario(tenantId, id, papelDeQuemAltera)
         const userDTO = updateUserDTO(body)
         if (['profissional', 'recepcao'].includes(body.role)) {
             userDTO.role = body.role
@@ -73,7 +92,8 @@ export const UserService = {
         return user
     },
 
-    async deleteUsuarioDaClinica(tenantId, id) {
+    async deleteUsuarioDaClinica(tenantId, id, papelDeQuemAltera) {
+        await this.exigirPodeAlterarUsuario(tenantId, id, papelDeQuemAltera)
         const user = await UserModel.findOneAndDelete({ _id: id, tenantId })
         if (!user) {
             throw new AppError('Usuário não encontrado', 404)
@@ -81,7 +101,8 @@ export const UserService = {
         return null
     },
 
-    async resetPasswordUsuarioDaClinica(tenantId, id, novaSenha) {
+    async resetPasswordUsuarioDaClinica(tenantId, id, novaSenha, papelDeQuemAltera) {
+        await this.exigirPodeAlterarUsuario(tenantId, id, papelDeQuemAltera)
         const user = await UserModel.findOne({ _id: id, tenantId })
         if (!user) {
             throw new AppError('Usuário não encontrado', 404)
@@ -100,7 +121,8 @@ export const UserService = {
     },
 
     async updateMe(id, tenantId, role, body) {
-        const userDTO = updateMeDTO(body, role)
+        const ehAfiliado = !!(await UserModel.findById(id, 'afiliadoDesde'))?.afiliadoDesde
+        const userDTO = updateMeDTO(body, role, ehAfiliado)
 
         let user
         try {
@@ -168,15 +190,21 @@ export const UserService = {
 
         const newId = new mongoose.Types.ObjectId()
         const isNovaClinica = !body.tenantId
+        if (isNovaClinica && body.aceitouTermos !== true) {
+            throw new AppError('Para criar a conta, leia e aceite os Termos de uso', 400)
+        }
+        const indicador = isNovaClinica ? await IndicacaoService.buscarIndicador(body.codigoIndicacao) : null
 
         const user = await UserModel.create({
             ...userDTO,
             _id: newId,
             tenantId: body.tenantId || newId,
+            ...(isNovaClinica ? { termosAceitosEm: new Date(), termosVersao: `clinica-${TERMOS_CLINICA_VERSAO}` } : {}),
         })
 
         if (isNovaClinica) {
             await AssinaturaService.criarAssinaturaTrial(newId)
+            await IndicacaoService.registrar(indicador, newId)
         }
 
         return user
@@ -245,6 +273,10 @@ export const UserService = {
             throw new AppError('Informe o nome da clínica e o telefone', 400)
         }
 
+        if (cadastro.aceitouTermos !== true) {
+            throw new AppError('Para criar a conta, leia e aceite os Termos de uso', 400)
+        }
+        const indicador = await IndicacaoService.buscarIndicador(cadastro.codigoIndicacao)
         const newId = new mongoose.Types.ObjectId()
         let novo
         try {
@@ -259,6 +291,8 @@ export const UserService = {
                 telefone,
                 nomeEmpresa,
                 cnpj: String(cadastro.cnpj ?? '').trim() || null,
+                termosAceitosEm: new Date(),
+                termosVersao: `clinica-${TERMOS_CLINICA_VERSAO}`,
             })
         } catch (error) {
             if (error.code === 11000) {
@@ -267,6 +301,7 @@ export const UserService = {
             throw error
         }
         await AssinaturaService.criarAssinaturaTrial(newId)
+        await IndicacaoService.registrar(indicador, newId)
         return await emitirSessao(novo, 'google')
     },
 

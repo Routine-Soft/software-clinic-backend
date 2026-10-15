@@ -1,5 +1,5 @@
 import { ProntuarioController } from './prontuario.controller.js'
-import { authenticate } from '../shared/middlewares/auth.middleware.js'
+import { authenticate, authorize } from '../shared/middlewares/auth.middleware.js'
 import { exigirAssinaturaAtiva } from '../shared/middlewares/assinatura.middleware.js'
 
 export async function prontuarioRoutes(fastify) {
@@ -12,6 +12,8 @@ export async function prontuarioRoutes(fastify) {
         // Quem pode ler e alterar é decidido no serviço (prontuario.acesso.js), não pelo perfil do login.
         // Não há rota de exclusão: o prontuário deve ser guardado por no mínimo 20 anos (Lei 13.787/2018).
         fastify.get('/prontuarios/acesso', ProntuarioController.acesso)
+        // Contador sem dado clínico, para a página inicial de quem não lê prontuários (recepção) e do admin.
+        fastify.get('/prontuarios/em-atendimento', { preHandler: authorize(['admin', 'recepcao', 'super_admin']) }, ProntuarioController.totalEmAtendimento)
         fastify.get('/prontuarios', ProntuarioController.getAllProntuarios)
         fastify.get('/prontuarios/:id', ProntuarioController.getProntuarioById)
         fastify.post('/prontuarios', ProntuarioController.createProntuario)

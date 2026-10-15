@@ -26,9 +26,9 @@ function validarRegra({ preco, comissao, comissaoTipo }, onde) {
     }
 }
 
-// Regra particular e a de cada convênio da tabela (convênio desta clínica, sem repetir).
+// Regra padrão e a de cada convênio da tabela (convênio desta clínica, sem repetir).
 async function validarPrecos(servico, tenantId) {
-    validarRegra(servico, 'do particular')
+    validarRegra(servico, 'da regra padrão')
 
     const tabela = servico.tabelaConvenios ?? []
     const ids = tabela.map((linha) => String(linha.convenioId))
@@ -50,8 +50,9 @@ async function validarPrecos(servico, tenantId) {
 }
 
 export const ServicoService = {
+    // Em ordem alfabética, ignorando acento e maiúscula ("Ácido" fica junto do "A").
     async findAll(tenantId) {
-        return await ServicoModel.find({ tenantId })
+        return await ServicoModel.find({ tenantId }).collation({ locale: 'pt', strength: 1 }).sort({ nome: 1 })
     },
 
     async findById(id, tenantId) {

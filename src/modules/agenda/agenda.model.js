@@ -19,6 +19,10 @@ const agendaSchema = new mongoose.Schema({
     status: { type: String, enum: ['aguardando', 'realizado', 'cancelado'], default: 'aguardando' },
     realizadoEm: { type: Date, default: null },
 
+    // Sala de espera: quando o paciente chegou (marcado pela recepção) e a última vez em que foi chamado na TV.
+    chegouEm: { type: Date, default: null },
+    chamadoEm: { type: Date, default: null },
+
     // Comissão do profissional por este atendimento, calculada no momento em que ele é marcado como realizado,
     // pela regra do serviço para o convênio do atendimento (mudar a regra depois não altera o que já foi feito).
     // percentual: preenchido quando a regra era percentual (valor = percentual do valor cobrado).
