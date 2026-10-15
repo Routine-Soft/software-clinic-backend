@@ -28,6 +28,7 @@ export function chamadaParaTv(chamada) {
     return {
         id: chamada._id,
         paciente: chamada.paciente,
+        nomeFalado: chamada.nomeFalado ?? chamada.paciente,
         sala: chamada.sala,
         profissional: chamada.profissional,
         chamadaEm: chamada.createdAt,
@@ -85,6 +86,7 @@ export const ChamadaService = {
         await ChamadaModel.create({
             agendaId: agenda._id,
             paciente: nomeParaTv(agenda.pacienteId?.nome, agenda.pacienteId?.nomeNaTv),
+            nomeFalado: agenda.pacienteId?.nomeNaTv === 'oculto' ? null : nomeParaTv(agenda.pacienteId?.nome, 'completo'),
             sala: agenda.salaId?.nome ?? '',
             profissional: agenda.profissionalId?.exibirNaTv === false ? null : (agenda.profissionalId?.nome ?? null),
             chamadoPor: usuario.id,

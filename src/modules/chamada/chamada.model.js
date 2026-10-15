@@ -6,6 +6,8 @@ const chamadaSchema = new mongoose.Schema({
     agendaId: { type: mongoose.Schema.Types.ObjectId, ref: 'agendas', required: true },
     // null quando o paciente está marcado para não ter o nome na TV.
     paciente: { type: String, default: null },
+    // O que a voz da TV fala: o nome completo, mesmo quando a tela mostra abreviado (null quando o nome é oculto).
+    nomeFalado: { type: String, default: null },
     sala: { type: String, default: '' },
     // null quando o profissional não aparece na TV.
     profissional: { type: String, default: null },
