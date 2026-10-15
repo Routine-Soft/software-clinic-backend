@@ -19,6 +19,9 @@ const userSchema = new mongoose.Schema({
     nomeEmpresa: { type: String, required: function () { return this.role !== 'afiliado' } },
     // Código do "Indique e ganhe" da clínica (desconto na mensalidade; só do dono); criado ao abrir a tela.
     codigoIndicacao: { type: String, unique: true, sparse: true },
+    // País da clínica (ISO, ex.: BR, US), escolhido no cadastro. Decide a cobrança: Brasil = Mercado Pago em reais,
+    // outros países = Stripe em dólar (ver shared/utils/pais.js). Só vale no usuário dono da clínica.
+    pais: { type: String, default: 'BR' },
     // Lembretes de consulta pelo WhatsApp ligados para a clínica (só vale no usuário dono da clínica).
     // Recurso pago: quem liga é o super_admin.
     lembretesWhatsapp: { type: Boolean, default: false },

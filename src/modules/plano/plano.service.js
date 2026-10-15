@@ -1,15 +1,19 @@
 import PlanoModel from './plano.model.js'
 import { createPlanoDTO, updatePlanoDTO } from './plano.dto.js'
 import AppError from '../../errors/AppError.js'
+import { sincronizarPlanoNoStripe } from './plano.stripe.js'
+import { moedaDoPais } from '../shared/utils/pais.js'
 
 export const PlanoService = {
     async findAll() {
         return await PlanoModel.find()
     },
 
-    // Para a landing (sem login): só os planos pagos à venda, com o que cada um inclui.
-    async publicos() {
-        return await PlanoModel.find({ tipo: 'pago', ativo: true }, 'nome preco descricao recursos individual').sort({ preco: 1 })
+    // Para a landing (sem login): os planos pagos à venda no país do visitante (Brasil em reais, fora em dólar).
+    async publicos(pais) {
+        // Planos antigos não têm "moeda" gravada: valem como reais.
+        const moeda = moedaDoPais(pais) === 'USD' ? 'USD' : { $ne: 'USD' }
+        return await PlanoModel.find({ tipo: 'pago', ativo: true, moeda }, 'nome preco moeda descricao recursos individual').sort({ preco: 1 })
     },
 
     async findById(id) {
@@ -22,7 +26,8 @@ export const PlanoService = {
 
     async createPlano(body) {
         const planoDTO = createPlanoDTO(body)
-        return await PlanoModel.create(planoDTO)
+        const plano = await PlanoModel.create(planoDTO)
+        return await sincronizarPlanoNoStripe(plano)
     },
 
     async updatePlano(id, body) {
@@ -31,7 +36,7 @@ export const PlanoService = {
         if (!plano) {
             throw new AppError('Plano não encontrado', 404)
         }
-        return plano
+        return await sincronizarPlanoNoStripe(plano)
     },
 
     async deletePlano(id) {

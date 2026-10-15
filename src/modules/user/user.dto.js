@@ -1,3 +1,5 @@
+import { paisValido } from '../shared/utils/pais.js'
+
 import { interpretarDocumento } from '../assinatura/documento.js'
 import AppError from '../../errors/AppError.js'
 
@@ -10,6 +12,7 @@ export function createUserDTO(body) {
         cnpj: body.cnpj || null,
         nomeEmpresa: body.nomeEmpresa,
         role: body.role || 'admin',
+        pais: paisValido(body.pais) ?? 'BR',
     }
 }
 

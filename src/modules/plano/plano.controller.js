@@ -2,7 +2,7 @@ import { PlanoService } from './plano.service.js'
 
 export const PlanoController = {
     async publicos(req, reply) {
-        const planos = await PlanoService.publicos()
+        const planos = await PlanoService.publicos(req.query?.pais)
         return reply.send({ data: planos })
     },
 

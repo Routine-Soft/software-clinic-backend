@@ -6,6 +6,7 @@ import { AssinaturaService } from '../assinatura/assinatura.service.js'
 import { GoogleAuth } from './google-auth.js'
 import { IndicacaoService } from '../indicacao/indicacao.service.js'
 import { exigirPlanoComEquipe } from '../plano/plano.limites.js'
+import { paisValido } from '../shared/utils/pais.js'
 
 import { createUserDTO, updateUserDTO, updateMeDTO, loginUserDTO } from './user.dto.js'
 import AppError from '../../errors/AppError.js'
@@ -291,6 +292,7 @@ export const UserService = {
                 telefone,
                 nomeEmpresa,
                 cnpj: String(cadastro.cnpj ?? '').trim() || null,
+                pais: paisValido(cadastro.pais) ?? 'BR',
                 termosAceitosEm: new Date(),
                 termosVersao: `clinica-${TERMOS_CLINICA_VERSAO}`,
             })

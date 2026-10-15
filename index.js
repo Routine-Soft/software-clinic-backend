@@ -2,6 +2,7 @@ import "dotenv/config";
 import Fastify from "fastify";
 import fastifyCors from '@fastify/cors'
 import db from './src/db/db.js'
+import { idiomaDaRequisicao, traduzirMensagem } from './src/modules/shared/utils/idioma.js'
 import { userRoutes } from "./src/modules/user/user.routes.js";
 import { pacienteRoutes } from "./src/modules/paciente/paciente.routes.js";
 import { especialidadeRoutes } from "./src/modules/especialidade/especialidade.routes.js";
@@ -32,7 +33,21 @@ const fastify = Fastify({ logger: true })
 await fastify.register(fastifyCors, {
   origin: true,
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language'],
+})
+
+// Avisos e erros no idioma do site (Accept-Language): troca o campo "message" das respostas em JSON.
+fastify.addHook('onSend', async (req, reply, payload) => {
+  if (idiomaDaRequisicao(req) !== 'en' || typeof payload !== 'string' || !payload.includes('"message"')) return payload
+  if (!String(reply.getHeader('content-type') ?? '').includes('application/json')) return payload
+  try {
+    const corpo = JSON.parse(payload)
+    if (typeof corpo?.message !== 'string') return payload
+    corpo.message = traduzirMensagem(corpo.message, 'en')
+    return JSON.stringify(corpo)
+  } catch {
+    return payload
+  }
 })
 
 fastify.setErrorHandler((error, request, reply) => {

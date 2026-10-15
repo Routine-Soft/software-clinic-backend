@@ -7,6 +7,13 @@ export async function assinaturaRoutes(fastify) {
     // pública: quem chama é o Mercado Pago, não um usuário logado (protegida por assinatura HMAC)
     fastify.post('/assinaturas/webhook', AssinaturaController.webhook)
 
+    // pública: avisos do Stripe. Ele assina o corpo exatamente como enviou, então aqui o JSON não é interpretado.
+    fastify.register(async function (fastify) {
+        fastify.removeContentTypeParser('application/json')
+        fastify.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, corpo, done) => done(null, corpo))
+        fastify.post('/assinaturas/stripe/webhook', AssinaturaController.webhookStripe)
+    })
+
     fastify.register(async function (fastify) {
         fastify.addHook('preHandler', authenticate)
         // Afiliado não tem assinatura (e consultar criaria uma para ele).
@@ -24,5 +31,8 @@ export async function assinaturaRoutes(fastify) {
         fastify.post('/assinaturas/pix', quemPaga, AssinaturaController.pix)
         fastify.post('/assinaturas/pix/sincronizar', quemPaga, AssinaturaController.sincronizarPix)
         fastify.post('/assinaturas/cancelar', soAdmin, AssinaturaController.cancelar)
+        fastify.post('/assinaturas/stripe/checkout', quemPaga, AssinaturaController.checkoutStripe)
+        fastify.post('/assinaturas/stripe/portal', quemPaga, AssinaturaController.portalStripe)
+        fastify.post('/assinaturas/stripe/sincronizar', quemPaga, AssinaturaController.sincronizarStripe)
     })
 }

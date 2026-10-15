@@ -1,9 +1,10 @@
 import { UserService } from './user.service.js'
 import { RecuperarSenhaService } from './recuperar-senha.service.js'
+import { idiomaDaRequisicao } from '../shared/utils/idioma.js'
 
 export const UserController = {
     async pedirLinkDeSenha(req, reply) {
-        await RecuperarSenhaService.pedirLink(req.body?.email)
+        await RecuperarSenhaService.pedirLink(req.body?.email, idiomaDaRequisicao(req))
         return reply.send({ data: null, message: 'Se este e-mail tiver conta na Sonelia, você vai receber o link em alguns minutos.' })
     },
 

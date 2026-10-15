@@ -12,6 +12,8 @@ import AgendaModel from '../agenda/agenda.model.js'
 import PainelTvModel from '../painel-tv/painel-tv.model.js'
 import ChamadaModel from '../chamada/chamada.model.js'
 import { AssinaturaService, avaliarAcesso } from '../assinatura/assinatura.service.js'
+import { StripeService } from '../assinatura/assinatura.stripe.js'
+import { paisValido } from '../shared/utils/pais.js'
 import AppError from '../../errors/AppError.js'
 
 // Cada clínica é o próprio usuário admin: seu tenantId aponta para si mesmo (ver user.model.js).
@@ -79,7 +81,8 @@ async function estatisticasPorTenant(tenantIds) {
         ]),
         PagamentoModel.aggregate([
             { $match: { tenantId: { $in: tenantIds }, status: 'aprovado' } },
-            { $group: { _id: '$tenantId', total: { $sum: '$valor' }, quantidade: { $sum: 1 }, ultimo: { $max: '$aprovadoEm' } } },
+            // Cada clínica paga numa moeda só (Brasil em reais, fora em dólar).
+            { $group: { _id: '$tenantId', total: { $sum: '$valor' }, quantidade: { $sum: 1 }, ultimo: { $max: '$aprovadoEm' }, moeda: { $max: { $ifNull: ['$moeda', 'BRL'] } } } },
         ]),
     ])
 
@@ -105,6 +108,7 @@ async function estatisticasPorTenant(tenantIds) {
                 cancelados: porStatus.cancelado ?? 0,
             },
             totalPago: pago?.total ?? 0,
+            moedaPaga: pago?.moeda ?? 'BRL',
             pagamentos: pago?.quantidade ?? 0,
             ultimoPagamento: pago?.ultimo ?? null,
         }
@@ -118,7 +122,7 @@ function assinaturaParaDTO(assinatura, mapaPlanos) {
         _id: assinatura._id,
         status: assinatura.status,
         cobranca: assinatura.cobranca,
-        planoId: plano ? { _id: plano._id, nome: plano.nome, tipo: plano.tipo, preco: plano.preco } : null,
+        planoId: plano ? { _id: plano._id, nome: plano.nome, tipo: plano.tipo, preco: plano.preco, moeda: plano.moeda ?? 'BRL' } : null,
         dataFimTrial: assinatura.dataFimTrial,
         proximaCobranca: assinatura.proximaCobranca,
         inadimplenteDesde: assinatura.inadimplenteDesde,
@@ -154,12 +158,14 @@ export const ClinicaAdminService = {
         const agora = new Date()
         const desde = inicioDoPeriodo(chave, agora)
 
-        const [resultado] = await PagamentoModel.aggregate([
+        // Reais e dólares não se somam: o total é em reais e o que veio pelo Stripe aparece à parte (totalUSD).
+        const porMoeda = await PagamentoModel.aggregate([
             { $match: { status: 'aprovado', aprovadoEm: { $gte: desde, $lte: agora } } },
-            { $group: { _id: null, total: { $sum: '$valor' } } },
+            { $group: { _id: { $ifNull: ['$moeda', 'BRL'] }, total: { $sum: '$valor' } } },
         ])
+        const total = (moeda) => porMoeda.find((m) => m._id === moeda)?.total ?? 0
 
-        return { periodo: chave, desde, ate: agora, total: resultado?.total ?? 0 }
+        return { periodo: chave, desde, ate: agora, total: total('BRL'), totalUSD: total('USD') }
     },
 
     async listar(busca) {
@@ -185,6 +191,7 @@ export const ClinicaAdminService = {
             telefone: admin.telefone,
             nomeEmpresa: admin.nomeEmpresa,
             cnpj: admin.cnpj,
+            pais: admin.pais ?? 'BR',
             lembretesWhatsapp: !!admin.lembretesWhatsapp,
             createdAt: admin.createdAt,
             estatisticas: estatisticasDe(admin._id),
@@ -207,12 +214,13 @@ export const ClinicaAdminService = {
             aprovadoEm: p.aprovadoEm ?? p.createdAt,
             valor: p.valor,
             metodo: p.metodo,
+            moeda: p.moeda ?? 'BRL',
             plano: p.planoId?.nome ?? null,
         }))
     },
 
     async criar(body) {
-        const { nomeCompleto, email, password, telefone, nomeEmpresa, cnpj } = body ?? {}
+        const { nomeCompleto, email, password, telefone, nomeEmpresa, cnpj, pais } = body ?? {}
         if (!nomeCompleto || !email || !password || !telefone || !nomeEmpresa) {
             throw new AppError('Preencha nome, e-mail, telefone, senha e o nome da clínica', 400)
         }
@@ -232,6 +240,7 @@ export const ClinicaAdminService = {
                 telefone,
                 nomeEmpresa,
                 cnpj: cnpj || null,
+                pais: paisValido(pais) ?? 'BR',
                 role: 'admin',
             })
         } catch (error) {
@@ -258,9 +267,11 @@ export const ClinicaAdminService = {
     },
 
     async editar(id, body) {
-        const allowed = ['nomeCompleto', 'email', 'telefone', 'cnpj', 'nomeEmpresa']
+        const allowed = ['nomeCompleto', 'email', 'telefone', 'cnpj', 'nomeEmpresa', 'pais']
         const dados = Object.fromEntries(Object.entries(body ?? {}).filter(([campo]) => allowed.includes(campo)))
         if ('cnpj' in dados) dados.cnpj = dados.cnpj || null
+        // O país decide a cobrança (Mercado Pago ou Stripe): o super_admin corrige quando a clínica escolheu errado.
+        if ('pais' in dados) dados.pais = paisValido(dados.pais) ?? 'BR'
 
         let admin
         try {
@@ -292,6 +303,8 @@ export const ClinicaAdminService = {
             throw new AppError('Administrador não encontrado', 404)
         }
 
+        // Clínica de fora do Brasil: para de cobrar no cartão internacional antes de apagar.
+        await StripeService.encerrar(id)
         await AssinaturaModel.deleteMany({ tenantId: id })
         await PagamentoModel.deleteMany({ tenantId: id })
         await IndicacaoModel.deleteMany({ $or: [{ indicadorTenantId: id }, { indicadoTenantId: id }] })

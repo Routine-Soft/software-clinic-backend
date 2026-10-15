@@ -4,6 +4,11 @@ const planoSchema = new mongoose.Schema({
     nome: { type: String, required: true },
     tipo: { type: String, enum: ['gratis', 'pago'], required: true },
     preco: { type: Number, required: true, default: 0 },
+    // BRL: clínicas do Brasil (Mercado Pago). USD: clínicas de fora (Stripe); o preço em dólar é próprio, não convertido.
+    moeda: { type: String, enum: ['BRL', 'USD'], default: 'BRL' },
+    // Produto e preço criados no Stripe quando o plano em dólar é salvo (ver plano.stripe.js).
+    stripeProductId: { type: String, default: null },
+    stripePriceId: { type: String, default: null },
     duracaoDiasTrial: { type: Number, default: null },
     ativo: { type: Boolean, default: true },
     // Plano para quem atende sozinho: só o dono da conta usa o sistema (um profissional, sem recepção nem equipe).

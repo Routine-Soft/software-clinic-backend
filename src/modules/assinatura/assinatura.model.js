@@ -14,7 +14,10 @@ const assinaturaSchema = new mongoose.Schema({
     dataFimTrial: { type: Date, default: null },
     // "recorrente": cartão, renova sozinho no Mercado Pago. "pix": pagamento avulso, vale até proximaCobranca.
     // 'manual': ativada diretamente pelo super_admin (fora do Mercado Pago), sem cobrança futura automática.
-    cobranca: { type: String, enum: ['recorrente', 'pix', 'manual'], default: 'recorrente' },
+    // "stripe": cartão internacional, renova sozinho no Stripe (clínicas de fora do Brasil).
+    cobranca: { type: String, enum: ['recorrente', 'pix', 'manual', 'stripe'], default: 'recorrente' },
+    stripeCustomerId: { type: String, default: null },
+    stripeSubscriptionId: { type: String, default: null },
     mercadoPagoPreapprovalId: { type: String, default: null },
     // Troca do Pix para o cartão: assinatura no cartão criada para só começar a cobrar quando o período pago por Pix
     // acabar. Enquanto o cliente não conclui o checkout, a assinatura continua como Pix (ver aplicarCartaoAgendado).

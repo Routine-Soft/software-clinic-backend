@@ -13,6 +13,8 @@ export function createPlanoDTO(body) {
         individual: body.individual === true,
         descricao: typeof body.descricao === 'string' ? body.descricao.trim() : '',
         recursos: recursosDTO(body.recursos),
+        // A moeda é escolhida ao criar e não muda depois (as assinaturas dependem dela).
+        moeda: body.moeda === 'USD' ? 'USD' : 'BRL',
     }
 }
 

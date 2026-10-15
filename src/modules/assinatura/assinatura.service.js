@@ -10,6 +10,8 @@ import UserModel from '../user/user.model.js'
 import AppError from '../../errors/AppError.js'
 import { IndicacaoService } from '../indicacao/indicacao.service.js'
 import { exigirCabeNoIndividual } from '../plano/plano.limites.js'
+import { StripeService } from './assinatura.stripe.js'
+import { ehBrasil } from '../shared/utils/pais.js'
 
 // MP_API_URL existe só para apontar os testes automatizados para um Mercado Pago falso.
 const MP_API = process.env.MP_API_URL || 'https://api.mercadopago.com'
@@ -328,6 +330,10 @@ export const AssinaturaService = {
     // Se ainda não tinha pago nada (checkout pendente), volta ao teste em vez de ficar sem nada.
     async cancelarAssinatura(tenantId) {
         const assinatura = await AssinaturaModel.findOne({ tenantId }).sort({ createdAt: -1 })
+        if (assinatura?.cobranca === 'stripe' && assinatura.stripeSubscriptionId) {
+            await StripeService.cancelar(assinatura)
+            return await this.obterAssinaturaAtual(tenantId)
+        }
         if (assinatura?.status === 'ativa' && assinatura.cobranca === 'pix') {
             throw new AppError(`Assinaturas pagas por Pix não renovam sozinhas, então não há o que cancelar. O acesso continua até ${dataBR(assinatura.proximaCobranca)}.`, 400)
         }
@@ -356,7 +362,13 @@ export const AssinaturaService = {
     // Plano escolhido pelo cliente; sem escolha, mantém o plano pago que a assinatura já tem (ex.: "refazer pagamento")
     // ou, na falta dele, o plano pago ativo mais barato. O plano Individual só serve para quem não tem equipe.
     async escolherPlanoPago(assinatura, planoId) {
+        // Mercado Pago é só para as clínicas do Brasil, com os planos em reais.
+        const dono = await UserModel.findById(assinatura.tenantId, 'pais')
+        if (!ehBrasil(dono?.pais)) {
+            throw new AppError('Fora do Brasil o pagamento é pelo cartão internacional (Stripe).', 400)
+        }
         const plano = await this.buscarPlanoPago(assinatura, planoId)
+        if (plano.moeda === 'USD') throw new AppError('Plano não encontrado ou indisponível para assinatura', 404)
         if (plano.individual) await exigirCabeNoIndividual(assinatura.tenantId, plano)
         return plano
     },
@@ -364,7 +376,7 @@ export const AssinaturaService = {
     async buscarPlanoPago(assinatura, planoId) {
         if (planoId) {
             const plano = mongoose.isValidObjectId(planoId)
-                ? await PlanoModel.findOne({ _id: planoId, tipo: 'pago', ativo: true })
+                ? await PlanoModel.findOne({ _id: planoId, tipo: 'pago', ativo: true, moeda: { $ne: 'USD' } })
                 : null
             if (!plano) {
                 throw new AppError('Plano não encontrado ou indisponível para assinatura', 404)
@@ -375,7 +387,7 @@ export const AssinaturaService = {
         const atual = assinatura.planoId
         if (atual?.tipo === 'pago' && atual.ativo) return atual
 
-        const plano = await PlanoModel.findOne({ tipo: 'pago', ativo: true }).sort({ preco: 1 })
+        const plano = await PlanoModel.findOne({ tipo: 'pago', ativo: true, moeda: { $ne: 'USD' } }).sort({ preco: 1 })
         if (!plano) {
             throw new AppError('Plano pago não configurado', 500)
         }

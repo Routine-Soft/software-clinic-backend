@@ -19,28 +19,57 @@ function linkDeRedefinicao(codigo) {
     return `${base}/#/redefinir-senha/${codigo}`
 }
 
-function emailDeRedefinicao(nome, link) {
-    const primeiroNome = (nome || '').trim().split(/\s+/)[0] || 'Olá'
-    const texto = `${primeiroNome}, recebemos um pedido para redefinir a senha da sua conta na Sonelia.\n\nCrie uma senha nova por este link (vale por 1 hora): ${link}\n\nSe não foi você, ignore este e-mail: sua senha continua a mesma.`
+// Textos do e-mail nos dois idiomas do site (o pedido chega com o idioma da tela).
+const TEXTOS_DO_EMAIL = {
+    pt: {
+        lang: 'pt-BR',
+        assunto: 'Redefinir a sua senha da Sonelia',
+        ola: 'Olá',
+        titulo: 'Redefinir a sua senha',
+        pedido: (nome) => `${nome}, recebemos um pedido para redefinir a senha da sua conta na Sonelia.`,
+        cliqueNoBotao: 'Clique no botão para criar uma senha nova:',
+        botao: 'Criar senha nova',
+        validade: 'O link vale por 1 hora e só pode ser usado uma vez. Se o botão não abrir, copie e cole no navegador:',
+        naoFoiVoce: 'Não foi você? Ignore este e-mail: sua senha continua a mesma.',
+        linkTexto: 'Crie uma senha nova por este link (vale por 1 hora):',
+    },
+    en: {
+        lang: 'en',
+        assunto: 'Reset your Sonelia password',
+        ola: 'Hi',
+        titulo: 'Reset your password',
+        pedido: (nome) => `${nome}, we received a request to reset the password of your Sonelia account.`,
+        cliqueNoBotao: 'Click the button to create a new password:',
+        botao: 'Create new password',
+        validade: 'The link is valid for 1 hour and can only be used once. If the button doesn’t open, copy and paste this into your browser:',
+        naoFoiVoce: 'Wasn’t you? Ignore this email: your password stays the same.',
+        linkTexto: 'Create a new password with this link (valid for 1 hour):',
+    },
+}
+
+function emailDeRedefinicao(nome, link, idioma = 'pt') {
+    const T = TEXTOS_DO_EMAIL[idioma] ?? TEXTOS_DO_EMAIL.pt
+    const primeiroNome = (nome || '').trim().split(/\s+/)[0] || T.ola
+    const texto = `${T.pedido(primeiroNome)}\n\n${T.linkTexto} ${link}\n\n${T.naoFoiVoce}`
     const html = `<!doctype html>
-<html lang="pt-BR"><body style="margin:0;padding:24px;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif;color:#1f2937">
+<html lang="${T.lang}"><body style="margin:0;padding:24px;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif;color:#1f2937">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px">
     <tr><td>
       <div style="display:inline-block;width:44px;height:44px;line-height:44px;text-align:center;border-radius:12px;background:#1e3a8a;color:#fff;font-family:Georgia,serif;font-size:20px">So</div>
-      <h1 style="font-size:20px;margin:20px 0 8px">Redefinir a sua senha</h1>
-      <p style="font-size:15px;line-height:1.6;margin:0 0 20px">${primeiroNome}, recebemos um pedido para redefinir a senha da sua conta na Sonelia. Clique no botão para criar uma senha nova:</p>
-      <p style="margin:0 0 24px"><a href="${link}" style="display:inline-block;padding:12px 24px;border-radius:10px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:bold">Criar senha nova</a></p>
-      <p style="font-size:13px;line-height:1.6;color:#6b7280;margin:0 0 8px">O link vale por 1 hora e só pode ser usado uma vez. Se o botão não abrir, copie e cole no navegador:<br><span style="word-break:break-all">${link}</span></p>
-      <p style="font-size:13px;line-height:1.6;color:#6b7280;margin:16px 0 0">Não foi você? Ignore este e-mail: sua senha continua a mesma.</p>
+      <h1 style="font-size:20px;margin:20px 0 8px">${T.titulo}</h1>
+      <p style="font-size:15px;line-height:1.6;margin:0 0 20px">${T.pedido(primeiroNome)} ${T.cliqueNoBotao}</p>
+      <p style="margin:0 0 24px"><a href="${link}" style="display:inline-block;padding:12px 24px;border-radius:10px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:bold">${T.botao}</a></p>
+      <p style="font-size:13px;line-height:1.6;color:#6b7280;margin:0 0 8px">${T.validade}<br><span style="word-break:break-all">${link}</span></p>
+      <p style="font-size:13px;line-height:1.6;color:#6b7280;margin:16px 0 0">${T.naoFoiVoce}</p>
     </td></tr>
   </table>
 </body></html>`
-    return { html, texto }
+    return { html, texto, assunto: T.assunto }
 }
 
 export const RecuperarSenhaService = {
     // Responde igual exista ou não a conta, para a tela não revelar quais e-mails são cadastrados.
-    async pedirLink(email) {
+    async pedirLink(email, idioma = 'pt') {
         const normalizado = typeof email === 'string' ? email.toLowerCase().replace(/\s+/g, '') : ''
         if (!normalizado.includes('@')) throw new AppError('Informe o seu e-mail', 400)
 
@@ -56,9 +85,9 @@ export const RecuperarSenhaService = {
         user.resetPasswordExpires = new Date(agora + VALIDADE_MS)
         await user.save()
 
-        const { html, texto } = emailDeRedefinicao(user.nomeCompleto, linkDeRedefinicao(codigo))
+        const { html, texto, assunto } = emailDeRedefinicao(user.nomeCompleto, linkDeRedefinicao(codigo), idioma)
         try {
-            await enviarEmail({ para: user.email, assunto: 'Redefinir a sua senha da Sonelia', html, texto })
+            await enviarEmail({ para: user.email, assunto, html, texto })
         } catch (error) {
             // Sem e-mail enviado, o pedido não conta para o limite de um por minuto.
             await UserModel.updateOne({ _id: user._id }, { $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 } })

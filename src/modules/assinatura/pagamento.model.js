@@ -8,8 +8,11 @@ const pagamentoSchema = new mongoose.Schema({
     planoId: { type: mongoose.Schema.Types.ObjectId, ref: 'planos', required: true },
 
     // credito: mês pago inteiro com o crédito de indicação, sem passar pelo Mercado Pago.
-    metodo: { type: String, enum: ['pix', 'recorrente', 'credito'], default: 'pix' },
-    mercadoPagoPaymentId: { type: String, required: true, index: true },
+    // stripe: fatura paga no cartão pelo Stripe (clínicas de fora do Brasil, em dólar).
+    metodo: { type: String, enum: ['pix', 'recorrente', 'credito', 'stripe'], default: 'pix' },
+    mercadoPagoPaymentId: { type: String, required: function () { return this.metodo !== 'stripe' }, index: true },
+    stripeInvoiceId: { type: String, default: undefined, unique: true, sparse: true },
+    moeda: { type: String, enum: ['BRL', 'USD'], default: 'BRL' },
     status: {
         type: String,
         enum: ['pendente', 'aprovado', 'cancelado', 'expirado', 'rejeitado', 'devolvido'],
