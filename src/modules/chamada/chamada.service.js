@@ -85,7 +85,8 @@ export const ChamadaService = {
         const agora = new Date()
         await ChamadaModel.create({
             agendaId: agenda._id,
-            paciente: nomeParaTv(agenda.pacienteId?.nome, agenda.pacienteId?.nomeNaTv),
+            // A TV mostra e fala o nome completo, a não ser que o paciente esteja marcado para não aparecer.
+            paciente: agenda.pacienteId?.nomeNaTv === 'oculto' ? null : nomeParaTv(agenda.pacienteId?.nome, 'completo'),
             nomeFalado: agenda.pacienteId?.nomeNaTv === 'oculto' ? null : nomeParaTv(agenda.pacienteId?.nome, 'completo'),
             sala: agenda.salaId?.nome ?? '',
             profissional: agenda.profissionalId?.exibirNaTv === false ? null : (agenda.profissionalId?.nome ?? null),

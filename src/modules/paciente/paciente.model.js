@@ -28,9 +28,9 @@ const pacienteSchema = new mongoose.Schema({
     // Paciente criado só para experimentar o sistema. Só é marcado no cadastro (nunca depois) e, ao ser excluído,
     // leva junto prontuário, agendamentos e avaliações, sem a guarda de 20 anos que vale para paciente real.
     teste: { type: Boolean, default: false },
-    // Como o nome aparece na TV da sala de espera quando o paciente é chamado (a clínica escolhe por paciente):
-    // completo ("Maria Silva"), abreviado ("Maria S."), primeiro ("Maria") ou oculto (só a sala).
-    nomeNaTv: { type: String, enum: ['completo', 'abreviado', 'primeiro', 'oculto'], default: 'abreviado' },
+    // Nome na TV da sala de espera: completo (padrão) ou oculto (só a sala). "abreviado" e "primeiro" são de uma
+    // versão anterior e hoje também mostram o nome completo.
+    nomeNaTv: { type: String, enum: ['completo', 'abreviado', 'primeiro', 'oculto'], default: 'completo' },
 
     // Perfil clínico: dado de saúde, fica fora de toda consulta por padrão (select: false), inclusive nos
     // populate da agenda. Só o módulo de prontuário lê e grava, com as regras de sigilo.
