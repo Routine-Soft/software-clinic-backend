@@ -25,6 +25,7 @@ import { comissaoRoutes } from "./src/modules/comissao/comissao.routes.js";
 import { chamadaRoutes } from "./src/modules/chamada/chamada.routes.js";
 import { painelTvRoutes } from "./src/modules/painel-tv/painel-tv.routes.js";
 import { avaliacaoNeuropsicologicaRoutes } from "./src/modules/avaliacao-neuropsicologica/avaliacao-neuropsicologica.routes.js";
+import { termoRoutes } from "./src/modules/termo/termo.routes.js";
 import { lembreteWhatsappRoutes } from "./src/modules/lembrete-whatsapp/lembrete.routes.js";
 import { iniciarLembretesWhatsapp } from "./src/modules/lembrete-whatsapp/lembrete.agendador.js";
 
@@ -83,6 +84,7 @@ await fastify.register(avaliacaoNeuropsicologicaRoutes, { prefix: '/api' })
 await fastify.register(chamadaRoutes, { prefix: '/api' })
 await fastify.register(painelTvRoutes, { prefix: '/api' })
 await fastify.register(lembreteWhatsappRoutes, { prefix: '/api' })
+await fastify.register(termoRoutes, { prefix: '/api' })
 
 const start = async () => {
   try {

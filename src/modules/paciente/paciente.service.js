@@ -6,6 +6,7 @@ import AgendaModel from '../agenda/agenda.model.js'
 import ListaEsperaModel from '../lista-espera/lista-espera.model.js'
 import AvaliacaoNeuropsicologicaModel from '../avaliacao-neuropsicologica/avaliacao-neuropsicologica.model.js'
 import AvaliacaoNr01Model from '../avaliacao-nr01/avaliacao-nr01.model.js'
+import TermoModel from '../termo/termo.model.js'
 import AppError from '../../errors/AppError.js'
 
 const MAIORIDADE = 18
@@ -98,6 +99,7 @@ export const PacienteService = {
                 ListaEsperaModel.deleteMany(filtro),
                 AvaliacaoNeuropsicologicaModel.deleteMany(filtro),
                 AvaliacaoNr01Model.deleteMany(filtro),
+                TermoModel.deleteMany(filtro),
             ])
             await PacienteModel.deleteOne({ _id: atual._id, tenantId })
             return null
@@ -107,6 +109,11 @@ export const PacienteService = {
         if (await ProntuarioModel.exists({ tenantId, pacienteId: id })) {
             throw new AppError('Este paciente tem prontuário registrado e não pode ser excluído: o prontuário deve ser guardado por no mínimo 20 anos.', 409)
         }
+        // O termo assinado é a prova do consentimento: fica guardado junto com o paciente.
+        if (await TermoModel.exists({ tenantId, pacienteId: id, status: 'assinado' })) {
+            throw new AppError('Este paciente tem termo de consentimento assinado e não pode ser excluído.', 409)
+        }
+        await TermoModel.deleteMany({ tenantId, pacienteId: id })
         const paciente = await PacienteModel.findOneAndDelete({ _id: id, tenantId })
         if (!paciente) {
             throw new AppError('Paciente não encontrado', 404)
