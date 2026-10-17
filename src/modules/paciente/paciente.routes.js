@@ -14,5 +14,7 @@ export async function pacienteRoutes(fastify) {
         fastify.post('/pacientes', PacienteController.createPaciente)
         fastify.patch('/pacientes/:id', PacienteController.updatePaciente)
         fastify.delete('/pacientes/:id', PacienteController.deletePaciente)
+        fastify.post('/pacientes/:id/acompanhamentos', PacienteController.adicionarAcompanhamento)
+        fastify.post('/pacientes/:id/acompanhamentos/:acompanhamentoId/encerrar', PacienteController.encerrarAcompanhamento)
     })
 }

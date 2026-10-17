@@ -28,6 +28,7 @@ import { avaliacaoNeuropsicologicaRoutes } from "./src/modules/avaliacao-neurops
 import { termoRoutes } from "./src/modules/termo/termo.routes.js";
 import { lembreteWhatsappRoutes } from "./src/modules/lembrete-whatsapp/lembrete.routes.js";
 import { iniciarLembretesWhatsapp } from "./src/modules/lembrete-whatsapp/lembrete.agendador.js";
+import { AcompanhamentoService } from "./src/modules/paciente/acompanhamento.service.js";
 
 const fastify = Fastify({ logger: true })
 
@@ -93,6 +94,13 @@ const start = async () => {
     await fastify.listen({ port: process.env.PORT || 8080, host: '0.0.0.0' })
     console.log(`🚀 Servidor rodando na porta ${process.env.PORT || 8080}`)
     iniciarLembretesWhatsapp(fastify.log)
+    // Pacientes de antes do "profissionais que acompanham": monta a lista pelas consultas (uma vez só).
+    // Só no servidor: o ambiente de desenvolvimento usa o mesmo banco e não deve mexer nos dados reais.
+    if (process.env.NODE_ENV === 'production') {
+      AcompanhamentoService.preencherPacientesAntigos()
+        .then((n) => { if (n > 0) fastify.log.info(`Acompanhamentos montados para ${n} paciente(s) antigos`) })
+        .catch((erro) => fastify.log.error(erro, 'Falha ao montar os acompanhamentos dos pacientes antigos'))
+    }
   } catch (err) {
     fastify.log.error(err)
     process.exit(1)

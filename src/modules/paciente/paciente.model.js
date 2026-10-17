@@ -9,6 +9,14 @@ const responsavelSchema = new mongoose.Schema({
     email: { type: String, default: '', trim: true, lowercase: true },
 }, { _id: false })
 
+// Profissional que acompanha o paciente. Entra sozinho na primeira consulta com ele (ou pela recepção) e,
+// quando deixa de acompanhar, ganha a data de saída (`ate`): o histórico fica guardado.
+const acompanhamentoSchema = new mongoose.Schema({
+    profissionalId: { type: mongoose.Schema.Types.ObjectId, ref: 'profissionais', required: true },
+    desde: { type: Date, required: true },
+    ate: { type: Date, default: null },
+})
+
 const pacienteSchema = new mongoose.Schema({
     nome: { type: String, required: true },
     // Obrigatórios para adultos; para menores de idade, o contato pode ser só o dos responsáveis
@@ -33,6 +41,7 @@ const pacienteSchema = new mongoose.Schema({
     nomeNaTv: { type: String, enum: ['completo', 'abreviado', 'primeiro', 'oculto'], default: 'completo' },
     // Consentimento para lembretes de consulta pelo WhatsApp (exigido pela Meta e pela LGPD).
     aceitaWhatsapp: { type: Boolean, default: false },
+    acompanhamentos: { type: [acompanhamentoSchema], default: [] },
 
     // Perfil clínico: dado de saúde, fica fora de toda consulta por padrão (select: false), inclusive nos
     // populate da agenda. Só o módulo de prontuário lê e grava, com as regras de sigilo.

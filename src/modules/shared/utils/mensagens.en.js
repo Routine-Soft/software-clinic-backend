@@ -304,6 +304,13 @@ export const MENSAGENS_EN = {
     'Stripe não configurado': 'Stripe not configured',
     'Erro ao processar o aviso': 'Error processing the notification',
 
+    // Profissionais que acompanham o paciente
+    'Escolha o profissional': 'Choose the practitioner',
+    'Este profissional já acompanha o paciente': 'This practitioner already follows the patient',
+    'Acompanhamento não encontrado': 'Follow-up not found',
+    'Profissional incluído no acompanhamento do paciente': 'Practitioner added to the patient’s care team',
+    'Acompanhamento encerrado: fica no histórico do paciente': 'Follow-up ended: it stays in the patient’s history',
+
     // Termos de consentimento (TCLE)
     'Informe o título do termo': 'Enter the form title',
     'Escreva o texto do termo': 'Write the form text',

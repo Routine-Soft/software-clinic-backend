@@ -27,6 +27,16 @@ export const PacienteController = {
         return reply.send({ data: paciente, message: 'Paciente atualizado com sucesso' })
     },
 
+    async adicionarAcompanhamento(req, reply) {
+        const paciente = await PacienteService.adicionarAcompanhamento(req.params.id, req.user.tenantId, req.body?.profissionalId)
+        return reply.send({ data: paciente, message: 'Profissional incluído no acompanhamento do paciente' })
+    },
+
+    async encerrarAcompanhamento(req, reply) {
+        const paciente = await PacienteService.encerrarAcompanhamento(req.params.id, req.user.tenantId, req.params.acompanhamentoId)
+        return reply.send({ data: paciente, message: 'Acompanhamento encerrado: fica no histórico do paciente' })
+    },
+
     async deletePaciente(req, reply) {
         const { id } = req.params
         const { tenantId } = req.user

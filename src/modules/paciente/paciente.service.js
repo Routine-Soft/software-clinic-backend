@@ -7,6 +7,7 @@ import ListaEsperaModel from '../lista-espera/lista-espera.model.js'
 import AvaliacaoNeuropsicologicaModel from '../avaliacao-neuropsicologica/avaliacao-neuropsicologica.model.js'
 import AvaliacaoNr01Model from '../avaliacao-nr01/avaliacao-nr01.model.js'
 import TermoModel from '../termo/termo.model.js'
+import { AcompanhamentoService } from './acompanhamento.service.js'
 import AppError from '../../errors/AppError.js'
 
 const MAIORIDADE = 18
@@ -39,10 +40,12 @@ function validarPaciente(paciente) {
 export const PacienteService = {
     async findAll(tenantId) {
         return await PacienteModel.find({ tenantId }).populate('convenioId').populate('empresaId')
+            .populate('acompanhamentos.profissionalId', AcompanhamentoService.CAMPOS_PROFISSIONAL)
     },
 
     async findById(id, tenantId) {
         const paciente = await PacienteModel.findOne({ _id: id, tenantId }).populate('convenioId').populate('empresaId')
+            .populate('acompanhamentos.profissionalId', AcompanhamentoService.CAMPOS_PROFISSIONAL)
         if (!paciente) {
             throw new AppError('Paciente não encontrado', 404)
         }
@@ -60,6 +63,14 @@ export const PacienteService = {
             }
             throw error
         }
+    },
+
+    async adicionarAcompanhamento(id, tenantId, profissionalId) {
+        return await AcompanhamentoService.adicionar(tenantId, id, profissionalId)
+    },
+
+    async encerrarAcompanhamento(id, tenantId, acompanhamentoId) {
+        return await AcompanhamentoService.encerrar(tenantId, id, acompanhamentoId)
     },
 
     async updatePaciente(id, tenantId, body) {

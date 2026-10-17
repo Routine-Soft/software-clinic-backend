@@ -4,6 +4,7 @@ import ProfissionalModel from '../profissional/profissional.model.js'
 import { createAgendaDTO, updateAgendaDTO } from './agenda.dto.js'
 import { hojeDiaPuro } from '../shared/utils/dia-puro.js'
 import { regraDoServico, calcularComissao } from '../servico/servico.regras.js'
+import { AcompanhamentoService } from '../paciente/acompanhamento.service.js'
 import AppError from '../../errors/AppError.js'
 
 const COMISSAO_PAGA = 'O repasse deste atendimento já foi pago ao profissional'
@@ -84,7 +85,9 @@ export const AgendaService = {
         const agendaDTO = createAgendaDTO(body)
 
         if (!body.repetir) {
-            return await AgendaModel.create({ ...agendaDTO, tenantId })
+            const agenda = await AgendaModel.create({ ...agendaDTO, tenantId })
+            await AcompanhamentoService.registrarConsulta(tenantId, agenda.pacienteId, agenda.profissionalId, agenda.data)
+            return agenda
         }
 
         const { diasSemana, dataFim } = body.repetir
@@ -103,7 +106,9 @@ export const AgendaService = {
             grupoRecorrenciaId,
         }))
 
-        return await AgendaModel.insertMany(documentos)
+        const agendas = await AgendaModel.insertMany(documentos)
+        await AcompanhamentoService.registrarConsulta(tenantId, agendaDTO.pacienteId, agendaDTO.profissionalId, datas[0])
+        return agendas
     },
 
     async updateAgenda(id, tenantId, body) {
@@ -134,6 +139,10 @@ export const AgendaService = {
 
         if (!agenda) {
             throw new AppError('Agendamento não encontrado', 404)
+        }
+        // Trocou o paciente ou o profissional: o novo par também passa a constar como acompanhamento.
+        if (agenda.status !== 'cancelado') {
+            await AcompanhamentoService.registrarConsulta(tenantId, agenda.pacienteId, agenda.profissionalId, agenda.data)
         }
 
         return agenda
