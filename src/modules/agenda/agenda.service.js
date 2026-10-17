@@ -37,6 +37,19 @@ function gerarDatasRecorrencia(dataInicio, dataFim, diasSemana) {
     return datas
 }
 
+// Atendimento realizado: gera a comissão (repasse) pendente do profissional, com a regra que o serviço tem agora.
+// `agenda` precisa vir com o servicoId populado.
+function marcarComoRealizado(agenda) {
+    agenda.status = 'realizado'
+    agenda.realizadoEm = new Date()
+    const regra = regraDoServico(agenda.servicoId, agenda.convenioId)
+    agenda.comissao = {
+        valor: calcularComissao(regra, agenda.financeiro?.valor),
+        percentual: regra.comissaoTipo === 'percentual' ? regra.comissao : null,
+        pagamentoId: null,
+    }
+}
+
 export const AgendaService = {
     async findAll(tenantId, filtros = {}) {
         const query = { tenantId }
@@ -150,16 +163,7 @@ export const AgendaService = {
             if (agenda.data > hojeDiaPuro()) {
                 throw new AppError('Só é possível marcar como realizado a partir do dia do atendimento', 400)
             }
-            if (agenda.status !== 'realizado') {
-                agenda.status = 'realizado'
-                agenda.realizadoEm = new Date()
-                const regra = regraDoServico(agenda.servicoId, agenda.convenioId)
-                agenda.comissao = {
-                    valor: calcularComissao(regra, agenda.financeiro?.valor),
-                    percentual: regra.comissaoTipo === 'percentual' ? regra.comissao : null,
-                    pagamentoId: null,
-                }
-            }
+            if (agenda.status !== 'realizado') marcarComoRealizado(agenda)
         } else if (agenda.status === 'realizado') {
             if (agenda.comissao?.pagamentoId) {
                 throw new AppError(`${COMISSAO_PAGA}; não dá para desmarcar`, 409)
@@ -171,6 +175,16 @@ export const AgendaService = {
 
         await agenda.save()
         return await buscarCompleta(id, tenantId)
+    },
+
+    // Chamado ao finalizar o atendimento no prontuário: a consulta ligada a ele passa a contar como realizada
+    // e gera o repasse, sem a recepção precisar marcar. Consulta cancelada ou já realizada fica como está.
+    async realizarPeloAtendimento(agendaId, tenantId) {
+        const agenda = await AgendaModel.findOne({ _id: agendaId, tenantId, status: 'aguardando' }).populate('servicoId')
+        if (!agenda) return null
+        marcarComoRealizado(agenda)
+        await agenda.save()
+        return agenda
     },
 
     async cancelarAgenda(id, tenantId) {

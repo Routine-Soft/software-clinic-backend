@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 import ProntuarioModel from './prontuario.model.js'
 import PacienteModel, { CAMPOS_PERFIL_CLINICO } from '../paciente/paciente.model.js'
 import AgendaModel from '../agenda/agenda.model.js'
+import { AgendaService } from '../agenda/agenda.service.js'
 import { createProntuarioDTO, updateProntuarioDTO } from './prontuario.dto.js'
 import { ProntuarioAcesso } from './prontuario.acesso.js'
 import AppError from '../../errors/AppError.js'
@@ -150,6 +151,8 @@ export const ProntuarioService = {
         }
 
         await ProntuarioAcesso.registrar(contexto, finalizar ? 'finalizacao' : 'edicao', { pacienteId: salvo.pacienteId, prontuarioId: salvo._id })
+        // Finalizar o atendimento já conta a consulta como realizada e gera o repasse do profissional.
+        if (finalizar && salvo.agendamentoId) await AgendaService.realizarPeloAtendimento(salvo.agendamentoId, salvo.tenantId)
         return await popular(ProntuarioModel.findById(salvo._id))
     },
 
