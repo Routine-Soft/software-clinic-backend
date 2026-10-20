@@ -93,13 +93,14 @@ export const ProntuarioAcesso = {
     async registrar(contexto, acao, registros) {
         const lista = Array.isArray(registros) ? registros : [registros]
         if (lista.length === 0) return
-        await ProntuarioAcessoModel.insertMany(lista.map(({ pacienteId, prontuarioId = null, avaliacaoId = null }) => ({
+        await ProntuarioAcessoModel.insertMany(lista.map(({ pacienteId, prontuarioId = null, avaliacaoId = null, anamneseId = null }) => ({
             tenantId: contexto.profissional.tenantId,
             usuarioId: contexto.usuario.id,
             profissionalId: contexto.profissional._id,
             pacienteId: pacienteId?._id ?? pacienteId,
             prontuarioId,
             avaliacaoId,
+            anamneseId,
             acao,
             ip: contexto.ip ?? null,
         })))

@@ -15,6 +15,8 @@ const profissionalSchema = new mongoose.Schema({
     usuarioId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', default: null },
     // Mostra o nome do profissional na TV da sala de espera ao chamar o paciente (senão, só a sala).
     exibirNaTv: { type: Boolean, default: true },
+    // Modelo de anamnese que o profissional usa (o último escolhido no prontuário): já vem marcado na próxima.
+    anamneseModeloId: { type: mongoose.Schema.Types.ObjectId, ref: 'anamnese_modelos', default: null },
 
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
 

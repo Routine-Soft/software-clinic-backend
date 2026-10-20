@@ -3,18 +3,6 @@ import mongoose from 'mongoose'
 // Avaliação neuropsicológica, organizada como o laudo da Resolução CFP 06/2019:
 // identificação, descrição da demanda, procedimento, análise, conclusão e referências.
 
-const anamneseSchema = new mongoose.Schema({
-    gestacaoParto: { type: String, default: '' },
-    desenvolvimento: { type: String, default: '' },
-    escolaridade: { type: String, default: '' },
-    historicoMedico: { type: String, default: '' },
-    medicamentos: { type: String, default: '' },
-    historicoFamiliar: { type: String, default: '' },
-    aspectosEmocionais: { type: String, default: '' },
-    rotinaSono: { type: String, default: '' },
-    relacoesSociais: { type: String, default: '' },
-}, { _id: false })
-
 const sessaoSchema = new mongoose.Schema({
     data: { type: Date, default: null },
     duracaoMin: { type: Number, default: null, min: 0 },
@@ -41,7 +29,9 @@ const avaliacaoNeuropsicologicaSchema = new mongoose.Schema({
     finalidade: { type: String, default: '' },
     demanda: { type: String, default: '' },
 
-    anamnese: { type: anamneseSchema, default: () => ({}) },
+    // Anamnese no formato de ficha (anamnese/anamnese.ficha.js): { modeloId, titulo, secoes, respostas }.
+    // Começa com o modelo neuropsicológico da clínica; o profissional pode trocar enquanto a avaliação está aberta.
+    anamnese: { type: mongoose.Schema.Types.Mixed, default: null },
 
     // Procedimento
     informantes: { type: String, default: '' },

@@ -311,6 +311,26 @@ export const MENSAGENS_EN = {
     'Profissional incluído no acompanhamento do paciente': 'Practitioner added to the patient’s care team',
     'Acompanhamento encerrado: fica no histórico do paciente': 'Follow-up ended: it stays in the patient’s history',
 
+    // Anamneses
+    'O modelo precisa de pelo menos uma seção': 'The template needs at least one section',
+    'O modelo pode ter no máximo {0} seções': 'The template can have at most {0} sections',
+    'Uma seção pode ter no máximo {0} perguntas': 'A section can have at most {0} questions',
+    'Dê um título para cada seção': 'Give each section a title',
+    'Escreva o texto de cada pergunta': 'Write the text of each question',
+    'Perguntas de marcar ou de escolha precisam de opções': 'Checkbox or choice questions need options',
+    'Informe o nome do modelo de anamnese': 'Enter the intake template name',
+    'Modelo de anamnese não encontrado': 'Intake template not found',
+    'Modelo de anamnese criado com sucesso': 'Intake template created successfully',
+    'Modelo de anamnese salvo com sucesso': 'Intake template saved successfully',
+    'Cópia do modelo criada': 'Template copy created',
+    'Modelo de anamnese excluído': 'Intake template deleted',
+    'Anamnese não encontrada': 'Intake form not found',
+    'Esta anamnese não foi liberada para a sua especialidade.': 'This intake form has not been shared with your specialty.',
+    'Escolha o modelo de anamnese': 'Choose the intake template',
+    'Só o profissional que preencheu a anamnese pode alterá-la.': 'Only the practitioner who filled in the intake form can change it.',
+    'Anamnese criada': 'Intake form created',
+    'Anamnese salva': 'Intake form saved',
+
     // Termos de consentimento (TCLE)
     'Informe o título do termo': 'Enter the form title',
     'Escreva o texto do termo': 'Write the form text',

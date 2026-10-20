@@ -10,11 +10,14 @@ const prontuarioAcessoSchema = new mongoose.Schema({
     prontuarioId: { type: mongoose.Schema.Types.ObjectId, ref: 'prontuarios', default: null },
     // Preenchido quando o documento é uma avaliação neuropsicológica (também sigilosa).
     avaliacaoId: { type: mongoose.Schema.Types.ObjectId, ref: 'avaliacoes_neuropsicologicas', default: null },
+    // Preenchido quando o documento é uma anamnese do prontuário.
+    anamneseId: { type: mongoose.Schema.Types.ObjectId, ref: 'anamneses', default: null },
     acao: {
         type: String,
         enum: [
             'leitura', 'criacao', 'edicao', 'finalizacao', 'adendo', 'compartilhamento', 'perfil_leitura', 'perfil_edicao',
             'avaliacao_leitura', 'avaliacao_criacao', 'avaliacao_edicao', 'avaliacao_finalizacao', 'avaliacao_exclusao',
+            'anamnese_leitura', 'anamnese_criacao', 'anamnese_edicao', 'anamnese_compartilhamento',
         ],
         required: true,
     },

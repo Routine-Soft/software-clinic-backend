@@ -5,6 +5,8 @@ import AgendaModel from '../agenda/agenda.model.js'
 import { camposEditaveis } from './avaliacao-neuropsicologica.dto.js'
 import { ProntuarioAcesso } from '../prontuario/prontuario.acesso.js'
 import { validarServicoDoModulo } from '../servico/servico.modulo.js'
+import { modeloParaAvaliacao } from '../anamnese/anamnese.service.js'
+import { sanitizarRespostas } from '../anamnese/anamnese.ficha.js'
 import AppError from '../../errors/AppError.js'
 
 // Documento psicológico: segue o mesmo sigilo do prontuário (prontuario.acesso.js).
@@ -28,6 +30,22 @@ async function carregar(id, tenantId) {
         : null
     if (!avaliacao) throw new AppError('Avaliação não encontrada', 404)
     return avaliacao
+}
+
+// Ficha de anamnese da avaliação a partir de um modelo da clínica (cópia das seções).
+function fichaDoModelo(modelo, respostas) {
+    if (!modelo) return null
+    return { modeloId: modelo._id, titulo: modelo.titulo, secoes: modelo.secoes, respostas: sanitizarRespostas(modelo.secoes, respostas) }
+}
+
+// O que veio do formulário para a anamnese: trocar de modelo (recomeça as respostas) ou salvar as respostas.
+async function anamneseDoCorpo(body, avaliacao, tenantId) {
+    const entrada = body?.anamnese
+    if (!entrada || typeof entrada !== 'object') return undefined
+    if (entrada.modeloId) return fichaDoModelo(await modeloParaAvaliacao(tenantId, entrada.modeloId), entrada.respostas)
+    const atual = avaliacao?.anamnese?.secoes ? avaliacao.anamnese : fichaDoModelo(await modeloParaAvaliacao(tenantId))
+    if (!atual) return undefined
+    return { ...atual, respostas: sanitizarRespostas(atual.secoes, entrada.respostas) }
 }
 
 const registro = (avaliacao) => ({ pacienteId: avaliacao.pacienteId, avaliacaoId: avaliacao._id })
@@ -74,8 +92,10 @@ export const AvaliacaoNeuropsicologicaService = {
         const dto = camposEditaveis(body)
         await validarServicoDoModulo(dto.servicoId, tenantId, 'neuropsicologica')
 
+        const anamnese = (await anamneseDoCorpo(body, null, tenantId)) ?? fichaDoModelo(await modeloParaAvaliacao(tenantId))
         const avaliacao = await AvaliacaoNeuropsicologicaModel.create({
             ...dto,
+            anamnese,
             pacienteId,
             profissionalId: contexto.profissional._id,
             tenantId,
@@ -100,6 +120,8 @@ export const AvaliacaoNeuropsicologicaService = {
 
         const dto = camposEditaveis(body)
         await validarServicoDoModulo(dto.servicoId, tenantId, 'neuropsicologica')
+        const anamnese = await anamneseDoCorpo(body, avaliacao, tenantId)
+        if (anamnese !== undefined) dto.anamnese = anamnese
         if (finalizar) dto.finalizadaEm = new Date()
 
         // O filtro repete "não finalizada": uma avaliação fechada não é reaberta por um salvamento atrasado.
