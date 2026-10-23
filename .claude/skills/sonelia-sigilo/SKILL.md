@@ -8,7 +8,7 @@ description: Regras de sigilo e acesso aos dados clínicos do Sonelia (prontuár
 Arquivo central: `src/modules/prontuario/prontuario.acesso.js` (`ProntuarioAcesso`).
 
 ## Quem acessa
-- Só **profissional de saúde**: login `admin`, `profissional` ou `super_admin` **com cadastro em `profissionais` ligado pelo `usuarioId`** (`profissionalDoUsuario` / `exigirProfissional`). A **recepção nunca** acessa conteúdo clínico (vê agenda e cadastro). O `tenantId` vem do cadastro do profissional.
+- Só **profissional de saúde**: login `admin`, `profissional` ou `super_admin` **com cadastro em `profissionais` ligado pelo `usuarioId`** (`profissionalDoUsuario` / `exigirProfissional`). A **recepção nunca** acessa conteúdo clínico (vê agenda e cadastro). Ela é a auxiliar da dona: pode criar e editar os **modelos** de anamnese e de termo (só perguntas e texto, sem dado de paciente), mas não lê nem preenche anamnese, prontuário ou avaliação. O `tenantId` vem do cadastro do profissional.
 - **Atendimento do prontuário e anamnese do prontuário:** lê o **autor** e os profissionais das **especialidades que o autor liberou** (`compartilhadoCom`; vazio = só o autor). `filtroLeitura` e `podeLerProntuario`. Só o autor altera.
   - Atendimento: só até **finalizar**; depois, correções entram como **adendo**. Finalizar marca a consulta ligada como realizada e gera o repasse.
   - Anamnese (`src/modules/anamnese/`): o autor pode editar as respostas a qualquer momento; guarda a cópia das seções do modelo.

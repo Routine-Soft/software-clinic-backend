@@ -4,7 +4,7 @@ Dois repositórios irmãos em `~/Repositorios/`: **`softwareclinic-backend`** (e
 
 - Produção: API `https://api.sonelia.com.br` (container `sonelia` na OVH; atualizar com `~/atualizar.sh sonelia`, ver skill `deploy-servidor`); site `https://sonelia.com.br` (Vercel, push na `main` publica).
 - **O `.env` local aponta para o banco de produção.** Rotinas que mexem em dados ao subir (ex.: montar acompanhamentos antigos) só rodam com `NODE_ENV=production` (só o servidor tem).
-- Skills deste projeto (`.claude/skills/`): `sonelia-traducoes` (PT/EN), `sonelia-sigilo` (prontuário, anamnese, avaliações), `sonelia-pagamentos` (Mercado Pago, Stripe, planos, afiliados), `sonelia-whatsapp` (lembretes de consulta).
+- Skills deste projeto (`.claude/skills/`): `sonelia-traducoes` (PT/EN/ES), `sonelia-sigilo` (prontuário, anamnese, avaliações), `sonelia-pagamentos` (Mercado Pago, Stripe, planos, afiliados), `sonelia-whatsapp` (lembretes de consulta).
 
 ## Multi-tenant e papéis
 - O dono da clínica é um `users` com `role: 'admin'` e `tenantId` = o próprio `_id`. Todo documento tem `tenantId`; o token traz `tenantId`.

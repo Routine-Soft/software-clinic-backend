@@ -41,12 +41,13 @@ await fastify.register(fastifyCors, {
 
 // Avisos e erros no idioma do site (Accept-Language): troca o campo "message" das respostas em JSON.
 fastify.addHook('onSend', async (req, reply, payload) => {
-  if (idiomaDaRequisicao(req) !== 'en' || typeof payload !== 'string' || !payload.includes('"message"')) return payload
+  const idioma = idiomaDaRequisicao(req)
+  if (idioma === 'pt' || typeof payload !== 'string' || !payload.includes('"message"')) return payload
   if (!String(reply.getHeader('content-type') ?? '').includes('application/json')) return payload
   try {
     const corpo = JSON.parse(payload)
     if (typeof corpo?.message !== 'string') return payload
-    corpo.message = traduzirMensagem(corpo.message, 'en')
+    corpo.message = traduzirMensagem(corpo.message, idioma)
     return JSON.stringify(corpo)
   } catch {
     return payload

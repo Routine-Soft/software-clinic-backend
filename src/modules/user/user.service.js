@@ -22,7 +22,14 @@ async function emitirSessao(user, via = 'senha') {
     const refreshToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' })
     user.tokenRefresh = refreshToken
     await user.save()
-    return { accessToken, refreshToken, user: user.toJSON() }
+    return { accessToken, refreshToken, user: await comPaisDaClinica(user) }
+}
+
+// O país fica só no dono da clínica; recepção e profissionais recebem o dele em `paisClinica`
+// (o site esconde o que só existe no Brasil, como NR-01 e "Indique e ganhe").
+async function comPaisDaClinica(user) {
+    const dono = String(user.tenantId) === String(user._id) ? user : await UserModel.findById(user.tenantId, 'pais').lean()
+    return { ...user.toJSON(), paisClinica: dono?.pais ?? 'BR' }
 }
 
 export const UserService = {
@@ -118,7 +125,7 @@ export const UserService = {
         if (!user) {
             throw new AppError('Usuário não encontrado', 404)
         }
-        return user
+        return await comPaisDaClinica(user)
     },
 
     async updateMe(id, tenantId, role, body) {

@@ -11,14 +11,13 @@ export async function termoRoutes(fastify) {
         fastify.addHook('preHandler', authenticate)
         fastify.addHook('preHandler', exigirAssinaturaAtiva)
 
+        // A recepção é a auxiliar da dona: também escreve os modelos de termo.
         const equipe = { preHandler: authorize(['admin', 'profissional', 'recepcao', 'super_admin']) }
-        // Escrever os modelos é com quem responde pelo atendimento: a dona e os profissionais.
-        const autores = { preHandler: authorize(['admin', 'profissional', 'super_admin']) }
 
         fastify.get('/termos/modelos', equipe, TermoController.listarModelos)
-        fastify.post('/termos/modelos', autores, TermoController.criarModelo)
-        fastify.patch('/termos/modelos/:id', autores, TermoController.atualizarModelo)
-        fastify.delete('/termos/modelos/:id', autores, TermoController.excluirModelo)
+        fastify.post('/termos/modelos', equipe, TermoController.criarModelo)
+        fastify.patch('/termos/modelos/:id', equipe, TermoController.atualizarModelo)
+        fastify.delete('/termos/modelos/:id', equipe, TermoController.excluirModelo)
 
         fastify.get('/termos', equipe, TermoController.listar)
         fastify.get('/termos/:id', equipe, TermoController.obter)

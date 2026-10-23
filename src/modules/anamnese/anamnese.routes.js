@@ -7,8 +7,9 @@ export async function anamneseRoutes(fastify) {
         fastify.addHook('preHandler', authenticate)
         fastify.addHook('preHandler', exigirAssinaturaAtiva)
 
-        // Modelos: quem atende e a dona da clínica montam. A recepção não mexe com anamnese.
-        const autores = { preHandler: authorize(['admin', 'profissional', 'super_admin']) }
+        // Modelos (só as perguntas, sem dado de paciente): a dona da clínica, a recepção (auxiliar dela) e quem atende
+        // montam. As anamneses preenchidas continuam sigilosas: a recepção não lê nem preenche.
+        const autores = { preHandler: authorize(['admin', 'profissional', 'recepcao', 'super_admin']) }
         fastify.get('/anamneses/modelos', autores, AnamneseController.listarModelos)
         fastify.get('/anamneses/modelos/:id', autores, AnamneseController.obterModelo)
         fastify.post('/anamneses/modelos', autores, AnamneseController.criarModelo)

@@ -8,6 +8,9 @@ import { ehBrasil } from '../shared/utils/pais.js'
 import { exigirCabeNoIndividual } from '../plano/plano.limites.js'
 import AppError from '../../errors/AppError.js'
 
+// Idioma da página de pagamento do Stripe, conforme o idioma do site.
+const LOCALE_DO_STRIPE = { pt: 'pt-BR', en: 'en', es: 'es-419' }
+
 // Stripe: assinatura no cartão (em dólar) das clínicas de fora do Brasil. As do Brasil continuam no Mercado Pago.
 
 // Frontend usa HashRouter: as rotas de retorno ficam depois do "#".
@@ -145,7 +148,7 @@ export const StripeService = {
                 client_reference_id: String(tenantId),
                 line_items: [{ price: plano.stripePriceId, quantity: 1 }],
                 subscription_data: { metadata: { tenantId: String(tenantId), planoId: String(plano._id) } },
-                locale: idioma === 'en' ? 'en' : 'pt-BR',
+                locale: LOCALE_DO_STRIPE[idioma] ?? 'pt-BR',
                 allow_promotion_codes: true,
                 success_url: `${urlDoApp('/assinatura/retorno')}?stripe_session={CHECKOUT_SESSION_ID}`,
                 cancel_url: urlDoApp('/assinaturas'),
@@ -166,7 +169,7 @@ export const StripeService = {
             const sessao = await stripe.billingPortal.sessions.create({
                 customer: assinatura.stripeCustomerId,
                 configuration: await configuracaoDoPortal(stripe),
-                locale: idioma === 'en' ? 'en' : 'pt-BR',
+                locale: LOCALE_DO_STRIPE[idioma] ?? 'pt-BR',
                 return_url: urlDoApp('/assinaturas'),
             })
             return { url: sessao.url }

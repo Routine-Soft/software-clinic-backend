@@ -19,7 +19,7 @@ function linkDeRedefinicao(codigo) {
     return `${base}/#/redefinir-senha/${codigo}`
 }
 
-// Textos do e-mail nos dois idiomas do site (o pedido chega com o idioma da tela).
+// Textos do e-mail nos três idiomas do site (o pedido chega com o idioma da tela).
 const TEXTOS_DO_EMAIL = {
     pt: {
         lang: 'pt-BR',
@@ -44,6 +44,18 @@ const TEXTOS_DO_EMAIL = {
         validade: 'The link is valid for 1 hour and can only be used once. If the button doesn’t open, copy and paste this into your browser:',
         naoFoiVoce: 'Wasn’t you? Ignore this email: your password stays the same.',
         linkTexto: 'Create a new password with this link (valid for 1 hour):',
+    },
+    es: {
+        lang: 'es',
+        assunto: 'Restablece tu contraseña de Sonelia',
+        ola: 'Hola',
+        titulo: 'Restablece tu contraseña',
+        pedido: (nome) => `${nome}, recibimos una solicitud para restablecer la contraseña de tu cuenta en Sonelia.`,
+        cliqueNoBotao: 'Haz clic en el botón para crear una nueva contraseña:',
+        botao: 'Crear nueva contraseña',
+        validade: 'El enlace vale por 1 hora y solo se puede usar una vez. Si el botón no abre, copia y pega esto en el navegador:',
+        naoFoiVoce: '¿No fuiste tú? Ignora este correo: tu contraseña sigue siendo la misma.',
+        linkTexto: 'Crea una nueva contraseña con este enlace (vale por 1 hora):',
     },
 }
 
