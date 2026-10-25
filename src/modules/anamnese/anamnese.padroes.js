@@ -482,6 +482,153 @@ const FONOAUDIOLOGIA = comIds([
     ]),
 ])
 
+const ESCALA_DOR = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+
+const FISIOTERAPIA = comIds([
+    secao('Identificação', [
+        data('Data da avaliação', { auto: 'hoje' }),
+        curto('Fisioterapeuta responsável', { auto: 'profissionalNome' }),
+        curto('Nome', { auto: 'pacienteNome' }),
+        data('Data de nascimento', { auto: 'pacienteNascimento' }),
+        curto('Idade', { auto: 'pacienteIdade' }),
+        curto('Telefone / e-mail', { auto: 'pacienteContato' }),
+        curto('Profissão / ocupação'),
+        escolha('Lado dominante', ['Destro', 'Canhoto', 'Ambidestro']),
+        curto('Médico que encaminhou'),
+        curto('Diagnóstico médico / CID (se houver)'),
+    ]),
+    secao('Queixa principal', [
+        longo('Queixa principal (o que trouxe o paciente)'),
+        longo('História da doença atual: como e quando começou, evolução, mecanismo da lesão'),
+        marcar('Região acometida', [
+            'Cervical', 'Torácica', 'Lombar', 'Ombro', 'Cotovelo', 'Punho / mão', 'Quadril', 'Joelho', 'Tornozelo / pé',
+        ], { outro: true }),
+        escolha('Lado', ['Direito', 'Esquerdo', 'Bilateral', 'Não se aplica']),
+    ]),
+    secao('Dor', [
+        escolha('Intensidade da dor agora (0 = sem dor, 10 = pior dor possível)', ESCALA_DOR),
+        escolha('Pior dor nas últimas semanas (0 a 10)', ESCALA_DOR),
+        marcar('Tipo de dor', ['Pontada', 'Queimação', 'Latejante', 'Peso', 'Choque', 'Formigamento', 'Dormência'], { outro: true }),
+        marcar('Quando a dor aparece', ['Em repouso', 'Ao movimentar', 'Ao acordar', 'À noite', 'Ao fim do dia', 'Ao ficar muito tempo na mesma posição']),
+        simNao('A dor se irradia para outra região?'),
+        curto('Para onde se irradia'),
+        longo('O que piora a dor'),
+        longo('O que melhora a dor'),
+    ]),
+    secao('Histórico de saúde', [
+        marcar('Doenças associadas', [
+            'Hipertensão', 'Diabetes', 'Cardiopatia', 'Osteoporose', 'Artrose', 'Artrite reumatoide', 'Fibromialgia', 'Doença respiratória', 'Doença neurológica',
+        ], { outro: true }),
+        longo('Cirurgias anteriores (quais e quando)'),
+        longo('Fraturas, lesões ou traumas anteriores'),
+        longo('Medicamentos em uso'),
+        longo('Exames de imagem realizados e resultados (raio-x, ressonância, ultrassom)'),
+        simNao('Já fez fisioterapia antes?'),
+        longo('Se sim, para quê e como foi o resultado'),
+        simNao('Usa órtese, prótese, palmilha ou dispositivo de marcha?'),
+        curto('Qual dispositivo'),
+    ]),
+    secao('Hábitos e vida diária', [
+        escolha('Atividade física', ['Sedentário', 'Leve (1–2x por semana)', 'Moderada (3–4x por semana)', 'Intensa (5x ou mais por semana)']),
+        curto('Qual atividade física / esporte'),
+        longo('Postura e rotina de trabalho (sentado, em pé, esforço físico, uso de computador)'),
+        escolha('Qualidade do sono', ['Boa', 'Regular', 'Ruim']),
+        simNao('Tabagismo'),
+        escolha('Independência nas atividades do dia a dia', INDEPENDENCIA),
+        longo('Atividades que hoje estão difíceis ou impossíveis por causa do problema'),
+    ]),
+    secao('Exame físico', [
+        curto('Peso / altura'),
+        curto('Pressão arterial / frequência cardíaca'),
+        longo('Inspeção (postura, edema, cicatrizes, deformidades, assimetrias)'),
+        longo('Palpação (pontos de dor, tensão muscular, temperatura)'),
+        longo('Amplitude de movimento (ADM)'),
+        longo('Força muscular (grau 0 a 5)'),
+        longo('Testes especiais realizados e resultados'),
+        longo('Marcha e equilíbrio'),
+        longo('Sensibilidade e reflexos'),
+    ]),
+    secao('Diagnóstico e plano', [
+        longo('Diagnóstico cinético-funcional'),
+        longo('Objetivos do tratamento (curto e longo prazo)'),
+        longo('Condutas e recursos planejados'),
+        curto('Frequência e número de sessões previstas'),
+        longo('Orientações dadas ao paciente'),
+    ]),
+])
+
+const CLINICA_GERAL = comIds([
+    secao('Identificação', [
+        data('Data da consulta', { auto: 'hoje' }),
+        curto('Médico responsável', { auto: 'profissionalNome' }),
+        curto('Nome', { auto: 'pacienteNome' }),
+        data('Data de nascimento', { auto: 'pacienteNascimento' }),
+        curto('Idade', { auto: 'pacienteIdade' }),
+        curto('Sexo'),
+        curto('Estado civil'),
+        curto('Profissão / ocupação'),
+        curto('Naturalidade / procedência'),
+        curto('Telefone / e-mail', { auto: 'pacienteContato' }),
+    ]),
+    secao('Queixa principal e história da doença atual', [
+        longo('Queixa principal (nas palavras do paciente)'),
+        curto('Há quanto tempo'),
+        longo('História da doença atual: início, duração, evolução, intensidade, fatores de melhora e piora, sintomas associados'),
+        longo('Tratamentos já feitos para esta queixa'),
+    ]),
+    secao('Revisão de sistemas', [
+        marcar('Gerais', ['Febre', 'Perda de peso', 'Ganho de peso', 'Cansaço', 'Suor noturno', 'Falta de apetite']),
+        marcar('Cabeça e pescoço', ['Dor de cabeça', 'Tontura', 'Alteração na visão', 'Alteração na audição', 'Dor de garganta', 'Caroços no pescoço']),
+        marcar('Coração e pulmões', ['Dor no peito', 'Palpitação', 'Falta de ar', 'Tosse', 'Chiado', 'Inchaço nas pernas']),
+        marcar('Digestivo', ['Azia', 'Náusea / vômito', 'Dor abdominal', 'Diarreia', 'Prisão de ventre', 'Sangue nas fezes']),
+        marcar('Urinário e reprodutor', ['Dor ao urinar', 'Urina com frequência', 'Sangue na urina', 'Alteração menstrual', 'Corrimento']),
+        marcar('Pele, músculos e nervos', ['Manchas na pele', 'Coceira', 'Dor nas articulações', 'Dor muscular', 'Formigamento', 'Fraqueza']),
+        marcar('Emocional', ['Ansiedade', 'Tristeza', 'Insônia', 'Irritabilidade']),
+        longo('Outros sintomas'),
+    ]),
+    secao('Antecedentes pessoais', [
+        marcar('Doenças', [
+            'Hipertensão', 'Diabetes', 'Colesterol alto', 'Doença cardíaca', 'Asma / bronquite', 'Doença da tireoide', 'Doença renal', 'Câncer', 'Depressão / ansiedade',
+        ], { outro: true }),
+        longo('Cirurgias e internações anteriores'),
+        longo('Medicamentos em uso (nome, dose e horário)'),
+        simNao('Tem alergia a medicamento?'),
+        curto('Quais alergias'),
+        curto('Vacinação em dia?'),
+        longo('Gestações, partos e ciclo menstrual (quando se aplica)'),
+    ]),
+    secao('Antecedentes familiares', [
+        marcar('Doenças na família', ['Hipertensão', 'Diabetes', 'Doença cardíaca', 'AVC', 'Câncer', 'Doença mental', 'Doença genética'], { outro: true }),
+        longo('Quem da família e observações'),
+    ]),
+    secao('Hábitos de vida', [
+        escolha('Tabagismo', ['Nunca fumou', 'Ex-fumante', 'Fuma']),
+        curto('Quantos cigarros por dia / há quantos anos'),
+        escolha('Bebida alcoólica', ['Não bebe', 'Socialmente', 'Frequentemente']),
+        simNao('Uso de outras substâncias'),
+        escolha('Atividade física', ['Sedentário', 'Leve', 'Moderada', 'Intensa']),
+        longo('Alimentação'),
+        escolha('Sono', ['Bom', 'Regular', 'Ruim']),
+    ]),
+    secao('Exame físico', [
+        curto('Pressão arterial'),
+        curto('Frequência cardíaca'),
+        curto('Frequência respiratória'),
+        curto('Temperatura'),
+        curto('Saturação de oxigênio'),
+        curto('Peso / altura / IMC'),
+        longo('Estado geral'),
+        longo('Exame por aparelhos (cabeça e pescoço, coração, pulmões, abdome, membros, neurológico, pele)'),
+    ]),
+    secao('Avaliação e conduta', [
+        longo('Hipóteses diagnósticas'),
+        longo('Exames solicitados'),
+        longo('Prescrição'),
+        longo('Orientações e encaminhamentos'),
+        curto('Retorno'),
+    ]),
+])
+
 export const MODELOS_PADRAO = [
     { chave: 'neuropsicologica', titulo: 'Anamnese Neuropsicológica — adultos e responsáveis', area: 'Neuropsicologia', descricao: 'Roteiro integrado para entrevista de adultos e com pais/responsáveis por crianças e adolescentes.', secoes: NEUROPSICOLOGICA },
     { chave: 'psicologica', titulo: 'Anamnese Psicológica — adulto', area: 'Psicologia', descricao: 'Entrevista inicial para psicoterapia de adultos.', secoes: PSICOLOGICA },
@@ -489,4 +636,6 @@ export const MODELOS_PADRAO = [
     { chave: 'terapia-ocupacional', titulo: 'Anamnese de Terapia Ocupacional', area: 'Terapia Ocupacional', descricao: 'Desempenho ocupacional, AVD, processamento sensorial e plano terapêutico.', secoes: TERAPIA_OCUPACIONAL },
     { chave: 'fonoaudiologia', titulo: 'Anamnese Fonoaudiológica — infantil', area: 'Fonoaudiologia', descricao: 'Protocolo clínico de avaliação fonoaudiológica: gestação, desenvolvimento, hábitos orais, saúde, comportamento, alimentação e escola.', secoes: FONOAUDIOLOGIA },
     { chave: 'infantil', titulo: 'Anamnese Infantil — entrevista com os responsáveis', area: 'Psicologia infantil / Terapia infantil', descricao: 'Para crianças: desenvolvimento, rotina, comportamento e família.', secoes: INFANTIL },
+    { chave: 'fisioterapia', titulo: 'Anamnese de Fisioterapia', area: 'Fisioterapia', descricao: 'Queixa, dor (escala de 0 a 10), histórico, rotina, exame físico, diagnóstico cinético-funcional e plano de tratamento.', secoes: FISIOTERAPIA },
+    { chave: 'clinica-geral', titulo: 'Anamnese de Clínica Geral', area: 'Clínica Médica', descricao: 'Consulta médica completa: queixa, história da doença atual, revisão de sistemas, antecedentes, hábitos, exame físico e conduta.', secoes: CLINICA_GERAL },
 ]
