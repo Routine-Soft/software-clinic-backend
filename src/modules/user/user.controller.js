@@ -75,7 +75,7 @@ export const UserController = {
     },
 
     async createUser(req, reply) {
-        const user = await UserService.createUser(req.body)
+        const user = await UserService.createUser(req.body, idiomaDaRequisicao(req))
         return reply.code(201).send({ data: user, message: 'Usuário criado com sucesso' })
     },
 
@@ -97,7 +97,7 @@ export const UserController = {
     },
 
     async entrarComGoogle(req, reply) {
-        const result = await UserService.entrarComGoogle(req.body)
+        const result = await UserService.entrarComGoogle(req.body, idiomaDaRequisicao(req))
         return reply.send({ data: result, message: result.novoCadastro ? 'Complete o cadastro da clínica' : 'Login realizado com sucesso' })
     },
 

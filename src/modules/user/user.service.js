@@ -7,6 +7,8 @@ import { GoogleAuth } from './google-auth.js'
 import { IndicacaoService } from '../indicacao/indicacao.service.js'
 import { exigirPlanoComEquipe } from '../plano/plano.limites.js'
 import { paisValido } from '../shared/utils/pais.js'
+import { enviarBoasVindas } from './boas-vindas.email.js'
+import { alertarNovoCadastro } from './novo-cadastro.alerta.js'
 
 import { createUserDTO, updateUserDTO, updateMeDTO, loginUserDTO } from './user.dto.js'
 import AppError from '../../errors/AppError.js'
@@ -192,7 +194,7 @@ export const UserService = {
         return user
     },
 
-    async createUser(body) {
+    async createUser(body, idioma = 'pt') {
         const userDTO = createUserDTO(body)
         userDTO.password = await argon2.hash(userDTO.password)
 
@@ -213,6 +215,8 @@ export const UserService = {
         if (isNovaClinica) {
             await AssinaturaService.criarAssinaturaTrial(newId)
             await IndicacaoService.registrar(indicador, newId)
+            enviarBoasVindas(user, idioma)
+            alertarNovoCadastro(user, { via: 'senha', idioma, codigoIndicacao: body.codigoIndicacao })
         }
 
         return user
@@ -257,7 +261,7 @@ export const UserService = {
     // Login e cadastro pelo Google. E-mail já cadastrado: entra na conta (admin, profissional ou recepção).
     // E-mail novo sem `cadastro`: devolve { novoCadastro } para o site pedir os dados da clínica;
     // com `cadastro`: cria a clínica, com o período de teste, e já entra.
-    async entrarComGoogle(body) {
+    async entrarComGoogle(body, idioma = 'pt') {
         const { credential, cadastro } = body ?? {}
         const google = await GoogleAuth.verificar(credential)
 
@@ -311,6 +315,8 @@ export const UserService = {
         }
         await AssinaturaService.criarAssinaturaTrial(newId)
         await IndicacaoService.registrar(indicador, newId)
+        enviarBoasVindas(novo, idioma)
+        alertarNovoCadastro(novo, { via: 'google', idioma, codigoIndicacao: cadastro.codigoIndicacao })
         return await emitirSessao(novo, 'google')
     },
 
