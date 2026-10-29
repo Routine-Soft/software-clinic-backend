@@ -629,6 +629,61 @@ const CLINICA_GERAL = comIds([
     ]),
 ])
 
+const NUTRICAO = comIds([
+    secao('Identificação', [
+        data('Data da consulta', { auto: 'hoje' }),
+        curto('Nutricionista responsável', { auto: 'profissionalNome' }),
+        curto('Nome', { auto: 'pacienteNome' }),
+        data('Data de nascimento', { auto: 'pacienteNascimento' }),
+        curto('Idade', { auto: 'pacienteIdade' }),
+        curto('Telefone / e-mail', { auto: 'pacienteContato' }),
+    ]),
+    secao('Patologias e tratamentos', [
+        simNao('Já foi em nutricionista antes?'),
+        longo('Se sim, por que parou o tratamento?'),
+        longo('O que você acredita que é o seu maior desafio para chegar ao seu objetivo?'),
+        simNao('Possui alguma doença crônica ou pré-existente?'),
+        longo('Patologias pré-existentes'),
+        longo('Antecedentes familiares'),
+        longo('Medicamentos em uso'),
+        simNao('Já fez retirada parcial ou total de algum órgão?'),
+        longo('Se sim, qual órgão ou cirurgia?'),
+        simNao('Faz uso de anticoncepcional oral (ACO) ou injetável?'),
+    ]),
+    secao('Neurológico', [
+        curto('Costuma dormir às'),
+        curto('Costuma acordar às'),
+        escolha('Nível de ansiedade (0 a 10)', ESCALA_DOR),
+    ]),
+    secao('Gastro', [
+        simNao('Sente dor ou desconforto gástrico ao ingerir algum alimento?'),
+        longo('Quais alimentos?'),
+        marcar('O que sente?', ['Dor', 'Barriga estufada / inchada', 'Azia e/ou náusea', 'Refluxo']),
+    ]),
+    secao('Menstruação', [
+        curto('Duração'),
+        curto('Fluxo'),
+    ]),
+    secao('Intestino e urinário', [
+        marcar('Funcionamento do intestino', ['Normal', 'Constipado']),
+        curto('Frequência'),
+        escolha('Escala de Bristol (tipo de fezes)', ['1', '2', '3', '4', '5', '6', '7']),
+    ]),
+    secao('Alimentação e hábitos', [
+        simNao('Pratica atividade física?'),
+        simNao('Consome bebida alcoólica?'),
+        curto('Se sim, o que consome?'),
+        curto('Se sim, com que frequência?'),
+        longo('Possui alguma restrição alimentar (intolerância a lactose, alergia a glúten, alergia alimentar)?'),
+        longo('Gosta de variar na comida diariamente ou fica bastante tempo comendo as mesmas coisas?'),
+        simNao('Enjoa fácil do que come?'),
+        curto('Com que frequência costuma comer fast food e afins?'),
+        curto('Quem é o responsável por preparar a sua alimentação diária?'),
+        longo('Alimentos que você mais gosta de comer'),
+        longo('Alimentos que você não gosta de comer'),
+    ]),
+])
+
 export const MODELOS_PADRAO = [
     { chave: 'neuropsicologica', titulo: 'Anamnese Neuropsicológica — adultos e responsáveis', area: 'Neuropsicologia', descricao: 'Roteiro integrado para entrevista de adultos e com pais/responsáveis por crianças e adolescentes.', secoes: NEUROPSICOLOGICA },
     { chave: 'psicologica', titulo: 'Anamnese Psicológica — adulto', area: 'Psicologia', descricao: 'Entrevista inicial para psicoterapia de adultos.', secoes: PSICOLOGICA },
@@ -638,4 +693,5 @@ export const MODELOS_PADRAO = [
     { chave: 'infantil', titulo: 'Anamnese Infantil — entrevista com os responsáveis', area: 'Psicologia infantil / Terapia infantil', descricao: 'Para crianças: desenvolvimento, rotina, comportamento e família.', secoes: INFANTIL },
     { chave: 'fisioterapia', titulo: 'Anamnese de Fisioterapia', area: 'Fisioterapia', descricao: 'Queixa, dor (escala de 0 a 10), histórico, rotina, exame físico, diagnóstico cinético-funcional e plano de tratamento.', secoes: FISIOTERAPIA },
     { chave: 'clinica-geral', titulo: 'Anamnese de Clínica Geral', area: 'Clínica Médica', descricao: 'Consulta médica completa: queixa, história da doença atual, revisão de sistemas, antecedentes, hábitos, exame físico e conduta.', secoes: CLINICA_GERAL },
+    { chave: 'nutricao', titulo: 'Anamnese Clínica Nutricional', area: 'Nutrição', descricao: 'Patologias e tratamentos, sono e ansiedade, gastro, menstruação, intestino e urinário, alimentação e hábitos.', secoes: NUTRICAO },
 ]
