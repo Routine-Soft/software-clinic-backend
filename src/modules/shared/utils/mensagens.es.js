@@ -356,6 +356,17 @@ export const MENSAGENS_ES = {
     'Termo assinado com sucesso': 'Consentimiento firmado con éxito',
     'Este paciente tem termo de consentimento assinado e não pode ser excluído.': 'Este paciente tiene un consentimiento firmado y no se puede eliminar.',
 
+    // Confirmação de atendimento
+    'Forma de confirmar atendimentos inválida': 'Forma de confirmar atenciones inválida',
+    'Forma de confirmar atendimentos atualizada': 'Forma de confirmar atenciones actualizada',
+    'Falta registrada': 'Ausencia registrada',
+    'Falta desfeita': 'Ausencia deshecha',
+    'Um agendamento cancelado não pode ser marcado como falta': 'Una cita cancelada no se puede marcar como ausencia',
+    'Só é possível marcar a falta a partir do dia do atendimento': 'La ausencia solo se puede marcar a partir del día de la cita',
+    'O repasse deste atendimento já foi pago ao profissional; não dá para marcar a falta': 'El pago de esta atención ya se hizo al profesional; no se puede marcar la ausencia',
+    'Este paciente foi marcado como falta': 'Este paciente fue marcado como ausente',
+    'Nesta clínica, o atendimento é confirmado pela recepção ou pela administração': 'En esta clínica, la atención la confirma la recepción o la administración',
+
     // Erros genéricos
     'Erro interno do servidor': 'Error interno del servidor',
     'Requisição inválida': 'Solicitud inválida',

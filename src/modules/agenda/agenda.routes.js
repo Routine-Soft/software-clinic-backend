@@ -10,10 +10,12 @@ export async function agendaRoutes(fastify) {
         fastify.addHook('preHandler', exigirAssinaturaAtiva)
 
         fastify.get('/agendas', AgendaController.getAllAgendas)
+        fastify.get('/agendas/confirmacoes', AgendaController.confirmacoes)
         fastify.get('/agendas/:id', AgendaController.getAgendaById)
         fastify.post('/agendas', AgendaController.createAgenda)
         fastify.patch('/agendas/:id', AgendaController.updateAgenda)
         fastify.patch('/agendas/:id/realizado', AgendaController.definirRealizado)
+        fastify.patch('/agendas/:id/falta', AgendaController.definirFalta)
         fastify.post('/agendas/:id/cancelar', AgendaController.cancelarAgenda)
         fastify.post('/agendas/grupo/:grupoRecorrenciaId/cancelar', AgendaController.cancelarGrupoRecorrencia)
         fastify.delete('/agendas/:id', AgendaController.deleteAgenda)

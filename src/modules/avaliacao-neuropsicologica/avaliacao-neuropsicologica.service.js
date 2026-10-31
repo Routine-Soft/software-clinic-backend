@@ -58,7 +58,7 @@ export const AvaliacaoNeuropsicologicaService = {
         const pacientesAtendidos = await AgendaModel.distinct('pacienteId', {
             tenantId,
             profissionalId: profissional._id,
-            status: { $ne: 'cancelado' },
+            status: { $nin: ['cancelado', 'faltou'] },
         })
         return await AvaliacaoNeuropsicologicaModel.find({
             tenantId,

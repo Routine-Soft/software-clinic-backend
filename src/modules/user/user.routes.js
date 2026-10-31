@@ -60,6 +60,7 @@ export async function userRoutes(fastify) {
         fastify.get('/users/me', UserController.getMe)
         fastify.patch('/users/me', UserController.updateMe)
         fastify.post('/users/me/password', UserController.updateMyPassword)
+        fastify.patch('/users/clinica/confirmacao-atendimento', { preHandler: authorize(['admin', 'super_admin']) }, UserController.definirConfirmacaoAtendimento)
         // Por id, qualquer conta da plataforma: só o super_admin. Cada pessoa altera a própria conta em /users/me,
         // e o admin altera os usuários da clínica em /users/tenant.
         fastify.get('/users/:id', soSuperAdmin, UserController.getUserById)

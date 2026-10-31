@@ -41,7 +41,7 @@ export const ProntuarioAcesso = {
             tenantId: profissional.tenantId,
             profissionalId: profissional._id,
             pacienteId,
-            status: { $ne: 'cancelado' },
+            status: { $nin: ['cancelado', 'faltou'] },
         }))
     },
 

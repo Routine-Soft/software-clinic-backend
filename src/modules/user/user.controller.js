@@ -63,6 +63,11 @@ export const UserController = {
         return reply.send({ data: user, message: 'Dados atualizados com sucesso' })
     },
 
+    async definirConfirmacaoAtendimento(req, reply) {
+        const modo = await UserService.definirConfirmacaoAtendimento(req.user.tenantId, req.body?.modo)
+        return reply.send({ data: { confirmacaoAtendimento: modo }, message: 'Forma de confirmar atendimentos atualizada' })
+    },
+
     async updateMyPassword(req, reply) {
         await UserService.updateMyPassword(req.user.id, req.body, req.user.via)
         return reply.send({ data: null, message: 'Senha alterada com sucesso' })

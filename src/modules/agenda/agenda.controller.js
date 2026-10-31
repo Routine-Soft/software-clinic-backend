@@ -37,6 +37,20 @@ export const AgendaController = {
         })
     },
 
+    async definirFalta(req, reply) {
+        const faltou = req.body?.faltou !== false
+        const agenda = await AgendaService.definirFalta(req.params.id, req.user, faltou)
+        return reply.send({
+            data: agenda,
+            message: faltou ? 'Falta registrada' : 'Falta desfeita',
+        })
+    },
+
+    async confirmacoes(req, reply) {
+        const dados = await AgendaService.confirmacoes(req.user)
+        return reply.send({ data: dados })
+    },
+
     async cancelarAgenda(req, reply) {
         const { id } = req.params
         const { tenantId } = req.user

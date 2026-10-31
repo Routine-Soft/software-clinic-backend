@@ -108,7 +108,7 @@ async function tratarResposta(mensagem) {
     if (!['confirmar', 'desmarcar'].includes(acao) || !mongoose.isValidObjectId(agendaId) || !mensagem.context?.id) return
 
     const agenda = await AgendaModel.findOne({ _id: agendaId, 'lembrete.mensagemId': mensagem.context.id })
-    if (!agenda || agenda.status === 'realizado') return
+    if (!agenda || ['realizado', 'faltou'].includes(agenda.status)) return
 
     const resposta = acao === 'confirmar' ? 'confirmado' : 'desmarcado'
     if (agenda.lembrete.resposta === resposta) return // aviso repetido da Meta

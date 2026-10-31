@@ -77,7 +77,7 @@ export const AcompanhamentoService = {
         if (antigos.length === 0) return 0
 
         const consultas = await AgendaModel.aggregate([
-            { $match: { pacienteId: { $in: antigos.map((p) => p._id) }, status: { $ne: 'cancelado' }, profissionalId: { $ne: null } } },
+            { $match: { pacienteId: { $in: antigos.map((p) => p._id) }, status: { $nin: ['cancelado', 'faltou'] }, profissionalId: { $ne: null } } },
             { $group: { _id: { pacienteId: '$pacienteId', profissionalId: '$profissionalId' }, desde: { $min: '$data' } } },
             { $sort: { desde: 1 } },
         ])

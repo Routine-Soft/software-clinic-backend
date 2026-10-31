@@ -20,6 +20,7 @@ async function agendaDeHoje(id, usuario) {
     const agenda = await AgendaModel.findOne({ _id: id, tenantId: usuario.tenantId, ...(await filtroDoUsuario(usuario)) })
     if (!agenda) throw new AppError('Agendamento não encontrado', 404)
     if (agenda.status === 'cancelado') throw new AppError('Este agendamento foi cancelado', 400)
+    if (agenda.status === 'faltou') throw new AppError('Este paciente foi marcado como falta', 400)
     if (agenda.data.getTime() !== hojeDiaPuro().getTime()) throw new AppError('Só dá para usar a sala de espera nos agendamentos de hoje', 400)
     return agenda
 }
@@ -41,7 +42,7 @@ export const ChamadaService = {
         const agendas = await AgendaModel.find({
             tenantId: usuario.tenantId,
             data: hojeDiaPuro(),
-            status: { $ne: 'cancelado' },
+            status: { $nin: ['cancelado', 'faltou'] },
             ...(await filtroDoUsuario(usuario)),
         })
             .populate('pacienteId', 'nome nomeNaTv teste')

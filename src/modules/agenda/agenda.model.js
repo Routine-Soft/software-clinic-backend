@@ -16,8 +16,11 @@ const agendaSchema = new mongoose.Schema({
     servicoId: { type: mongoose.Schema.Types.ObjectId, ref: 'servicos', required: true },
     convenioId: { type: mongoose.Schema.Types.ObjectId, ref: 'convenios', default: null },
 
-    status: { type: String, enum: ['aguardando', 'realizado', 'cancelado'], default: 'aguardando' },
+    status: { type: String, enum: ['aguardando', 'realizado', 'faltou', 'cancelado'], default: 'aguardando' },
     realizadoEm: { type: Date, default: null },
+    // Quando o profissional finalizou o atendimento. Na clínica em que a recepção confirma, isso só avisa: a consulta
+    // continua "aguardando" até a recepção ou a dona confirmar.
+    finalizadoEm: { type: Date, default: null },
 
     // Sala de espera: quando o paciente chegou (marcado pela recepção) e a última vez em que foi chamado na TV.
     chegouEm: { type: Date, default: null },

@@ -151,7 +151,7 @@ export const ProntuarioService = {
         }
 
         await ProntuarioAcesso.registrar(contexto, finalizar ? 'finalizacao' : 'edicao', { pacienteId: salvo.pacienteId, prontuarioId: salvo._id })
-        // Finalizar o atendimento já conta a consulta como realizada e gera o repasse do profissional.
+        // Finalizar conta a consulta como realizada e gera o repasse, ou fica para a recepção confirmar (depende da clínica).
         if (finalizar && salvo.agendamentoId) await AgendaService.realizarPeloAtendimento(salvo.agendamentoId, salvo.tenantId)
         return await popular(ProntuarioModel.findById(salvo._id))
     },

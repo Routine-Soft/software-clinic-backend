@@ -358,6 +358,17 @@ export const MENSAGENS_EN = {
     'Termo assinado com sucesso': 'Form signed successfully',
     'Este paciente tem termo de consentimento assinado e não pode ser excluído.': 'This patient has a signed consent form and cannot be deleted.',
 
+    // Confirmação de atendimento
+    'Forma de confirmar atendimentos inválida': 'Invalid way of confirming appointments',
+    'Forma de confirmar atendimentos atualizada': 'Way of confirming appointments updated',
+    'Falta registrada': 'No-show recorded',
+    'Falta desfeita': 'No-show undone',
+    'Um agendamento cancelado não pode ser marcado como falta': 'A canceled appointment cannot be marked as a no-show',
+    'Só é possível marcar a falta a partir do dia do atendimento': 'A no-show can only be marked from the day of the appointment',
+    'O repasse deste atendimento já foi pago ao profissional; não dá para marcar a falta': 'The payout for this appointment was already paid to the professional, so it cannot be marked as a no-show',
+    'Este paciente foi marcado como falta': 'This patient was marked as a no-show',
+    'Nesta clínica, o atendimento é confirmado pela recepção ou pela administração': 'At this clinic, appointments are confirmed by the front desk or management',
+
     // Erros genéricos
     'Erro interno do servidor': 'Internal server error',
     'Requisição inválida': 'Invalid request',
