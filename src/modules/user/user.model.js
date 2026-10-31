@@ -28,8 +28,6 @@ const userSchema = new mongoose.Schema({
     // Só no dono da clínica. 'automatica': finalizar o atendimento já conta como realizado e gera o repasse.
     // 'recepcao': só conta quando a recepção ou a dona confirmam.
     confirmacaoAtendimento: { type: String, enum: ['automatica', 'recepcao'], default: 'automatica' },
-    // Dia em que a clínica passou a confirmar: o que é mais antigo que isso não vira pendência.
-    confirmacaoDesde: { type: Date, default: null },
 
     role: {
         type: String,

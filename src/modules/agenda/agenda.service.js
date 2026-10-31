@@ -379,26 +379,25 @@ export const AgendaService = {
         }
     },
 
-    // Como a clínica confirma os atendimentos e, para quem confirma, as consultas que já aconteceram (ou que o
-    // profissional finalizou) e ninguém confirmou. Vem do servidor a cada tela: a sessão salva no navegador envelhece.
+    // Como a clínica confirma os atendimentos e, para quem resolve, o que ficou em aberto: em qualquer modo, consulta de
+    // dia anterior sem desfecho; na clínica em que a recepção confirma, também a de hoje que já passou ou foi finalizada.
+    // Vem do servidor a cada tela: a sessão salva no navegador envelhece.
     async confirmacoes(usuario) {
-        const clinica = await UserModel.findById(usuario.tenantId, 'confirmacaoAtendimento confirmacaoDesde').lean()
+        const clinica = await UserModel.findById(usuario.tenantId, 'confirmacaoAtendimento').lean()
         const modo = clinica?.confirmacaoAtendimento ?? 'automatica'
-        if (modo !== 'recepcao' || !QUEM_CONFIRMA.includes(usuario.role)) return { modo, pendentes: [] }
+        if (!QUEM_CONFIRMA.includes(usuario.role)) return { modo, pendentes: [] }
 
         const hoje = hojeDiaPuro()
-        const agendas = await AgendaModel.find({
-            tenantId: usuario.tenantId,
-            status: 'aguardando',
-            data: { $gte: clinica.confirmacaoDesde ?? hoje, $lte: hoje },
-        })
+        const agendas = await AgendaModel.find({ tenantId: usuario.tenantId, status: 'aguardando', data: { $lte: hoje } })
             .populate('pacienteId', 'nome')
             .populate('profissionalId', 'nome')
             .populate('servicoId', 'nome')
             .sort({ data: 1, horaInicio: 1 })
+            .limit(300)
 
         const agora = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
-        return { modo, pendentes: agendas.filter((a) => a.data < hoje || a.finalizadoEm || a.horaFim <= agora) }
+        const emAberto = (a) => a.data < hoje || (modo === 'recepcao' && (a.finalizadoEm || a.horaFim <= agora))
+        return { modo, pendentes: agendas.filter(emAberto) }
     },
 
     async cancelarAgenda(id, tenantId) {

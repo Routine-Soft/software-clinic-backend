@@ -6,7 +6,6 @@ import { AssinaturaService } from '../assinatura/assinatura.service.js'
 import { GoogleAuth } from './google-auth.js'
 import { IndicacaoService } from '../indicacao/indicacao.service.js'
 import { AgendaService } from '../agenda/agenda.service.js'
-import { hojeDiaPuro } from '../shared/utils/dia-puro.js'
 import { exigirPlanoComEquipe } from '../plano/plano.limites.js'
 import { paisValido } from '../shared/utils/pais.js'
 import { enviarBoasVindas } from './boas-vindas.email.js'
@@ -37,7 +36,7 @@ async function comPaisDaClinica(user) {
 }
 
 export const UserService = {
-    // Quem confirma os atendimentos da clínica. Só vira pendência o que for de hoje em diante.
+    // Quem confirma os atendimentos da clínica.
     async definirConfirmacaoAtendimento(tenantId, modo) {
         if (!['automatica', 'recepcao'].includes(modo)) {
             throw new AppError('Forma de confirmar atendimentos inválida', 400)
@@ -47,7 +46,7 @@ export const UserService = {
             throw new AppError('Clínica não encontrada', 404)
         }
         if ((clinica.confirmacaoAtendimento ?? 'automatica') !== modo) {
-            await UserModel.updateOne({ _id: tenantId }, { $set: { confirmacaoAtendimento: modo, confirmacaoDesde: modo === 'recepcao' ? hojeDiaPuro() : null } })
+            await UserModel.updateOne({ _id: tenantId }, { $set: { confirmacaoAtendimento: modo } })
             if (modo === 'automatica') await AgendaService.realizarFinalizados(tenantId)
         }
         return modo
