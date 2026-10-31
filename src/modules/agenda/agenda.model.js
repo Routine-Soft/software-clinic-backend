@@ -55,7 +55,12 @@ const agendaSchema = new mongoose.Schema({
         vencimento: { type: Date, required: true },
         parcelamento: { type: Number, default: 1 },
         formasPagamento: { type: [formaPagamentoSchema], default: [] },
+        // Quando o paciente pagou este agendamento. Nas sessões à vista ou parceladas, quem manda é a cobrança.
+        pagoEm: { type: Date, default: null },
+        // Parte do paciente no atendimento pelo plano, guardada como estava no convênio ao agendar.
+        coparticipacao: { type: Number, default: 0 },
     },
+    cobrancaId: { type: mongoose.Schema.Types.ObjectId, ref: 'cobrancas', default: null },
 
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
 

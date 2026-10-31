@@ -16,6 +16,7 @@ export async function agendaRoutes(fastify) {
         fastify.patch('/agendas/:id', AgendaController.updateAgenda)
         fastify.patch('/agendas/:id/realizado', AgendaController.definirRealizado)
         fastify.patch('/agendas/:id/falta', AgendaController.definirFalta)
+        fastify.patch('/agendas/:id/pagamento', AgendaController.marcarPagamento)
         fastify.post('/agendas/:id/cancelar', AgendaController.cancelarAgenda)
         fastify.post('/agendas/grupo/:grupoRecorrenciaId/cancelar', AgendaController.cancelarGrupoRecorrencia)
         fastify.delete('/agendas/:id', AgendaController.deleteAgenda)

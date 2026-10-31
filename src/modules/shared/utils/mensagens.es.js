@@ -367,6 +367,18 @@ export const MENSAGENS_ES = {
     'Este paciente foi marcado como falta': 'Este paciente fue marcado como ausente',
     'Nesta clínica, o atendimento é confirmado pela recepção ou pela administração': 'En esta clínica, la atención la confirma la recepción o la administración',
 
+    // Pagamento do paciente
+    'Este atendimento é pago pelo plano': 'Esta atención la paga el plan de salud',
+    'Informe a quantidade de parcelas': 'Indica la cantidad de cuotas',
+    'Escolha os dias da semana das sessões': 'Elige los días de la semana de las sesiones',
+    'Forma de pagar as sessões inválida': 'Forma de pago de las sesiones inválida',
+    'Informe a quantidade de sessões': 'Indica la cantidad de sesiones',
+    'Só a recepção ou a administração marca o pagamento': 'Solo la recepción o la administración marca el pago',
+    'Parcela não encontrada': 'Cuota no encontrada',
+    'Este atendimento é gratuito': 'Esta atención es gratuita',
+    'Pagamento registrado': 'Pago registrado',
+    'Pagamento desfeito': 'Pago deshecho',
+
     // Erros genéricos
     'Erro interno do servidor': 'Error interno del servidor',
     'Requisição inválida': 'Solicitud inválida',

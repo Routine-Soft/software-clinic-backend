@@ -3,6 +3,7 @@ import { createPacienteDTO, updatePacienteDTO } from './paciente.dto.js'
 import ProntuarioModel from '../prontuario/prontuario.model.js'
 import ProntuarioAcessoModel from '../prontuario/prontuario-acesso.model.js'
 import AgendaModel from '../agenda/agenda.model.js'
+import CobrancaModel from '../cobranca/cobranca.model.js'
 import ListaEsperaModel from '../lista-espera/lista-espera.model.js'
 import AvaliacaoNeuropsicologicaModel from '../avaliacao-neuropsicologica/avaliacao-neuropsicologica.model.js'
 import AvaliacaoNr01Model from '../avaliacao-nr01/avaliacao-nr01.model.js'
@@ -103,7 +104,9 @@ export const PacienteService = {
         // Paciente de teste não existe de verdade: sai com tudo o que foi criado para ele.
         if (atual.teste) {
             const filtro = { tenantId, pacienteId: atual._id }
+            const cobrancas = await AgendaModel.distinct('cobrancaId', { ...filtro, cobrancaId: { $ne: null } })
             await Promise.all([
+                CobrancaModel.deleteMany({ tenantId, _id: { $in: cobrancas } }),
                 ProntuarioAcessoModel.deleteMany(filtro),
                 ProntuarioModel.deleteMany(filtro),
                 AgendaModel.deleteMany(filtro),

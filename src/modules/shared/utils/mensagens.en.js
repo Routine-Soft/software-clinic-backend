@@ -369,6 +369,18 @@ export const MENSAGENS_EN = {
     'Este paciente foi marcado como falta': 'This patient was marked as a no-show',
     'Nesta clínica, o atendimento é confirmado pela recepção ou pela administração': 'At this clinic, appointments are confirmed by the front desk or management',
 
+    // Pagamento do paciente
+    'Este atendimento é pago pelo plano': 'This appointment is paid by the health plan',
+    'Informe a quantidade de parcelas': 'Enter the number of installments',
+    'Escolha os dias da semana das sessões': 'Choose the weekdays for the sessions',
+    'Forma de pagar as sessões inválida': 'Invalid session payment option',
+    'Informe a quantidade de sessões': 'Enter the number of sessions',
+    'Só a recepção ou a administração marca o pagamento': 'Only the front desk or management can mark payments',
+    'Parcela não encontrada': 'Installment not found',
+    'Este atendimento é gratuito': 'This appointment is free',
+    'Pagamento registrado': 'Payment recorded',
+    'Pagamento desfeito': 'Payment undone',
+
     // Erros genéricos
     'Erro interno do servidor': 'Internal server error',
     'Requisição inválida': 'Invalid request',

@@ -46,6 +46,12 @@ export const AgendaController = {
         })
     },
 
+    async marcarPagamento(req, reply) {
+        const pago = req.body?.pago !== false
+        const agenda = await AgendaService.marcarPagamento(req.params.id, req.user, { pago, parcela: req.body?.parcela })
+        return reply.send({ data: agenda, message: pago ? 'Pagamento registrado' : 'Pagamento desfeito' })
+    },
+
     async confirmacoes(req, reply) {
         const dados = await AgendaService.confirmacoes(req.user)
         return reply.send({ data: dados })

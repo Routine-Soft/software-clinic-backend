@@ -1,3 +1,4 @@
+import { pagaOPlano } from '../convenio/convenio.model.js';
 import { ThermalPrinter, PrinterTypes } from 'node-thermal-printer';
 import os from 'os';
 import AgendaModel from '../agenda/agenda.model.js';
@@ -191,18 +192,26 @@ export const PrintService = {
       printer.println(`Status: ${agenda.status}`);
       printer.println('--------------------------------');
 
-      printer.alignRight();
-      printer.bold(true);
-      printer.println(`VALOR: R$ ${agenda.financeiro.valor.toFixed(2)}`);
-      printer.bold(false);
-      printer.alignLeft();
-      printer.println(`Vencimento: ${new Date(agenda.financeiro.vencimento).toLocaleDateString('pt-BR')}`);
+      const peloPlano = pagaOPlano(agenda.convenioId);
+      if (peloPlano) {
+        printer.println(`Pago pelo plano: ${agenda.convenioId.nome}`);
+        if (agenda.financeiro.coparticipacao > 0) {
+          printer.println(`Coparticipação: R$ ${agenda.financeiro.coparticipacao.toFixed(2)}`);
+        }
+      } else {
+        printer.alignRight();
+        printer.bold(true);
+        printer.println(`VALOR: R$ ${agenda.financeiro.valor.toFixed(2)}`);
+        printer.bold(false);
+        printer.alignLeft();
+        printer.println(`Vencimento: ${new Date(agenda.financeiro.vencimento).toLocaleDateString('pt-BR')}`);
 
-      if (agenda.financeiro.formasPagamento?.length > 0) {
-        const formasTexto = agenda.financeiro.formasPagamento
-          .map((f) => `${f.tipo}: R$ ${f.valor.toFixed(2)}`)
-          .join(' + ');
-        printer.println(`Forma de pagamento: ${formasTexto}`);
+        if (agenda.financeiro.formasPagamento?.length > 0) {
+          const formasTexto = agenda.financeiro.formasPagamento
+            .map((f) => `${f.tipo}: R$ ${f.valor.toFixed(2)}`)
+            .join(' + ');
+          printer.println(`Forma de pagamento: ${formasTexto}`);
+        }
       }
 
       printer.newLine();

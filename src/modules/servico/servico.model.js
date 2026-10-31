@@ -3,12 +3,9 @@ import mongoose from 'mongoose'
 const servicoSchema = new mongoose.Schema({
     nome: { type: String, required: true },
     tipo: { type: String, enum: ['consulta', 'pacote'], required: true },
-    qtdDias: {
-        type: Number,
-        required: function () { return this.tipo === 'pacote' },
-        default: null,
-    },
-    // Preço e comissão do atendimento particular. A comissão é o que o profissional recebe por atendimento
+    // Tipo 'pacote' (na tela, "Sessões"): quantas sessões sugerir no agendamento. Quem define é a receita de cada paciente.
+    qtdDias: { type: Number, default: null },
+    // Preço por sessão e comissão do atendimento particular. A comissão é o que o profissional recebe por atendimento
     // realizado: um valor em reais ('valor') ou um percentual do valor cobrado ('percentual').
     preco: { type: Number, required: true },
     // Módulo que usa este serviço (a avaliação escolhe entre os serviços do seu módulo); null = atendimento comum.

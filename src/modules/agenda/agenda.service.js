@@ -1,6 +1,9 @@
 import mongoose from 'mongoose'
 import AgendaModel from './agenda.model.js'
 import ProfissionalModel from '../profissional/profissional.model.js'
+import ServicoModel from '../servico/servico.model.js'
+import CobrancaModel from '../cobranca/cobranca.model.js'
+import ConvenioModel, { pagaOPlano } from '../convenio/convenio.model.js'
 import UserModel from '../user/user.model.js'
 import { createAgendaDTO, updateAgendaDTO } from './agenda.dto.js'
 import { hojeDiaPuro } from '../shared/utils/dia-puro.js'
@@ -23,6 +26,7 @@ async function buscarCompleta(id, tenantId) {
         .populate('salaId')
         .populate('servicoId')
         .populate('convenioId')
+        .populate('cobrancaId')
 }
 
 // As datas dos agendamentos são "dia puro" gravado como meia-noite UTC. Por isso o dia da semana e o
@@ -41,6 +45,57 @@ function gerarDatasRecorrencia(dataInicio, dataFim, diasSemana) {
     }
 
     return datas
+}
+
+// As sessões de uma série: as próximas `quantas` datas nos dias da semana escolhidos, a partir da data inicial.
+function gerarDatasDasSessoes(dataInicio, quantas, diasSemana) {
+    const datas = []
+    const atual = new Date(dataInicio)
+
+    while (datas.length < quantas) {
+        if (diasSemana.includes(atual.getUTCDay())) {
+            datas.push(new Date(atual))
+        }
+        atual.setUTCDate(atual.getUTCDate() + 1)
+    }
+
+    return datas
+}
+
+// Divide o total em partes iguais, em centavos; o que sobra do arredondamento fica na última.
+function dividirValor(total, partes) {
+    const centavos = Math.round(Number(total) * 100)
+    const parte = Math.floor(centavos / partes)
+    return Array.from({ length: partes }, (_, i) => (i === partes - 1 ? centavos - parte * (partes - 1) : parte) / 100)
+}
+
+// Mesmo dia do mês seguinte; se o mês não tiver esse dia, o último dia dele.
+function somarMeses(data, meses) {
+    const base = new Date(data)
+    const ultimoDia = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + meses + 1, 0)).getUTCDate()
+    return new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + meses, Math.min(base.getUTCDate(), ultimoDia)))
+}
+
+// O plano paga o atendimento: o paciente só deve a coparticipação, se houver.
+async function regraDoConvenio(convenioId, tenantId) {
+    const convenio = convenioId ? await ConvenioModel.findOne({ _id: convenioId, tenantId }).lean() : null
+    const plano = pagaOPlano(convenio)
+    return { plano, coparticipacao: plano ? (convenio.coparticipacao ?? 0) : 0 }
+}
+
+async function criarCobranca({ modo, total, parcelas, vencimento, grupoRecorrenciaId, tenantId }) {
+    const quantas = modo === 'avista' ? 1 : parcelas
+    if (modo === 'parcelado' && (!Number.isInteger(quantas) || quantas < 1 || quantas > 120)) {
+        throw new AppError('Informe a quantidade de parcelas', 400)
+    }
+    const valores = dividirValor(total, quantas)
+    return await CobrancaModel.create({
+        modo,
+        total,
+        grupoRecorrenciaId,
+        tenantId,
+        parcelas: valores.map((valor, i) => ({ numero: i + 1, valor, vencimento: somarMeses(vencimento, i) })),
+    })
 }
 
 // Atendimento realizado: gera a comissão (repasse) pendente do profissional, com a regra que o serviço tem agora.
@@ -102,6 +157,7 @@ export const AgendaService = {
             .populate('salaId')
             .populate('servicoId')
             .populate('convenioId')
+            .populate('cobrancaId')
             .sort({ data: 1, horaInicio: 1 })
     },
 
@@ -116,6 +172,12 @@ export const AgendaService = {
 
     async createAgenda(body, tenantId) {
         const agendaDTO = createAgendaDTO(body)
+        const { plano, coparticipacao } = await regraDoConvenio(agendaDTO.convenioId, tenantId)
+        agendaDTO.financeiro.coparticipacao = coparticipacao
+        if (plano) {
+            agendaDTO.financeiro.formasPagamento = []
+            agendaDTO.financeiro.parcelamento = 1
+        }
 
         if (!body.repetir) {
             const agenda = await AgendaModel.create({ ...agendaDTO, tenantId })
@@ -124,7 +186,16 @@ export const AgendaService = {
         }
 
         const { diasSemana, dataFim } = body.repetir
-        const datas = gerarDatasRecorrencia(agendaDTO.data, dataFim, diasSemana)
+        const servico = await ServicoModel.findOne({ _id: agendaDTO.servicoId, tenantId }, 'tipo qtdDias').lean()
+        // Serviço por sessões: a quantidade vem da receita do paciente e é escolhida ao agendar.
+        const sessoes = servico?.tipo === 'pacote' ? Number(body.repetir.sessoes ?? servico.qtdDias) : null
+        if (servico?.tipo === 'pacote' && (!Number.isInteger(sessoes) || sessoes < 1 || sessoes > 200)) {
+            throw new AppError('Informe a quantidade de sessões', 400)
+        }
+        if (sessoes && !diasSemana?.length) {
+            throw new AppError('Escolha os dias da semana das sessões', 400)
+        }
+        const datas = sessoes ? gerarDatasDasSessoes(agendaDTO.data, sessoes, diasSemana) : gerarDatasRecorrencia(agendaDTO.data, dataFim, diasSemana)
 
         if (datas.length === 0) {
             throw new AppError('Nenhuma data válida encontrada para a recorrência informada', 400)
@@ -132,11 +203,27 @@ export const AgendaService = {
 
         const grupoRecorrenciaId = new mongoose.Types.ObjectId()
 
-        const documentos = datas.map((data) => ({
+        // O total da série vem da tela (sessões × preço, com desconto se houver): cada sessão fica com a sua parte,
+        // e é sobre ela que o repasse é calculado.
+        const total = Number(agendaDTO.financeiro.valor)
+        const valores = sessoes ? dividirValor(total, sessoes) : null
+        const modo = plano ? 'sessao' : (body.financeiro.modoPagamento ?? 'sessao')
+        if (sessoes && !['avista', 'sessao', 'parcelado'].includes(modo)) {
+            throw new AppError('Forma de pagar as sessões inválida', 400)
+        }
+        const cobranca = sessoes && total > 0 && modo !== 'sessao'
+            ? await criarCobranca({ modo, total, parcelas: Number(agendaDTO.financeiro.parcelamento), vencimento: agendaDTO.financeiro.vencimento, grupoRecorrenciaId, tenantId })
+            : null
+
+        const documentos = datas.map((data, i) => ({
             ...agendaDTO,
             data,
             tenantId,
             grupoRecorrenciaId,
+            cobrancaId: cobranca?._id ?? null,
+            financeiro: sessoes
+                ? { ...agendaDTO.financeiro, valor: valores[i], vencimento: data, parcelamento: cobranca?.parcelas.length ?? 1 }
+                : agendaDTO.financeiro,
         }))
 
         const agendas = await AgendaModel.insertMany(documentos)
@@ -162,7 +249,15 @@ export const AgendaService = {
         // Lembrete já enviado vale para o horário antigo: com outro dia, horário ou paciente, um novo será enviado.
         const trocaDia = 'data' in agendaDTO && new Date(agendaDTO.data).getTime() !== atual.data?.getTime()
         const trocaHorario = trocaDia || ['horaInicio', 'pacienteId'].some((campo) => campo in agendaDTO && String(agendaDTO[campo] ?? null) !== String(atual[campo] ?? null))
-        const alteracoes = trocaHorario ? { ...agendaDTO, lembrete: LEMBRETE_VAZIO } : agendaDTO
+        const alteracoes = trocaHorario ? { ...agendaDTO, lembrete: LEMBRETE_VAZIO } : { ...agendaDTO }
+        // Editar o agendamento não mexe no pagamento: isso só muda por marcarPagamento.
+        if (alteracoes.financeiro) {
+            const trocaConvenio = 'convenioId' in agendaDTO && String(agendaDTO.convenioId ?? null) !== String(atual.convenioId ?? null)
+            const coparticipacao = trocaConvenio
+                ? (await regraDoConvenio(agendaDTO.convenioId, tenantId)).coparticipacao
+                : (atual.financeiro?.coparticipacao ?? 0)
+            alteracoes.financeiro = { ...alteracoes.financeiro, pagoEm: atual.financeiro?.pagoEm ?? null, coparticipacao }
+        }
 
         const agenda = await AgendaModel.findOneAndUpdate(
             { _id: id, tenantId },
@@ -228,6 +323,39 @@ export const AgendaService = {
 
         await agenda.save()
         return await buscarCompleta(agenda._id, usuario.tenantId)
+    },
+
+    // Registra (ou desfaz) o pagamento do paciente: do agendamento ou, em pacote com cobrança, de uma parcela dela.
+    async marcarPagamento(id, usuario, { pago, parcela }) {
+        const { tenantId } = usuario
+        if (!QUEM_CONFIRMA.includes(usuario.role)) {
+            throw new AppError('Só a recepção ou a administração marca o pagamento', 403)
+        }
+        const agenda = await AgendaModel.findOne({ _id: id, tenantId })
+        if (!agenda) {
+            throw new AppError('Agendamento não encontrado', 404)
+        }
+
+        const pagoEm = pago ? new Date() : null
+        if (agenda.cobrancaId) {
+            const cobranca = await CobrancaModel.findOne({ _id: agenda.cobrancaId, tenantId })
+            const linha = cobranca?.parcelas.find((p) => p.numero === (parcela ?? 1))
+            if (!linha) {
+                throw new AppError('Parcela não encontrada', 404)
+            }
+            linha.pagoEm = pagoEm
+            await cobranca.save()
+        } else {
+            const { plano } = await regraDoConvenio(agenda.convenioId, tenantId)
+            if (plano && !(agenda.financeiro?.coparticipacao > 0)) {
+                throw new AppError('Este atendimento é pago pelo plano', 400)
+            }
+            if (!plano && Number(agenda.financeiro?.valor) === 0) {
+                throw new AppError('Este atendimento é gratuito', 400)
+            }
+            await AgendaModel.updateOne({ _id: id, tenantId }, { $set: { 'financeiro.pagoEm': pagoEm } })
+        }
+        return await buscarCompleta(id, tenantId)
     },
 
     // Chamado ao finalizar o atendimento no prontuário. Na clínica sem confirmação, a consulta passa a contar como
@@ -307,6 +435,10 @@ export const AgendaService = {
             throw new AppError(`${COMISSAO_PAGA}; não dá para remover`, 409)
         }
         await agenda.deleteOne()
+        // Última sessão da série: a cobrança sai junto.
+        if (agenda.cobrancaId && !(await AgendaModel.exists({ tenantId, cobrancaId: agenda.cobrancaId }))) {
+            await CobrancaModel.deleteOne({ _id: agenda.cobrancaId, tenantId })
+        }
         return null
     },
 }

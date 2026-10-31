@@ -12,7 +12,7 @@ export function createServicoDTO(body) {
     return {
         nome: body.nome,
         tipo: body.tipo,
-        qtdDias: body.tipo === 'pacote' ? body.qtdDias : null,
+        qtdDias: body.tipo === 'pacote' ? (body.qtdDias || null) : null,
         preco: body.preco,
         comissao: body.comissao ?? 0,
         comissaoTipo: body.comissaoTipo ?? 'valor',
