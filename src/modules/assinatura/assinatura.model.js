@@ -24,6 +24,8 @@ const assinaturaSchema = new mongoose.Schema({
     cartaoAgendadoPreapprovalId: { type: String, default: null },
     proximaCobranca: { type: Date, default: null },
     inadimplenteDesde: { type: Date, default: null },
+    // Quando saiu o último e-mail avisando do vencimento (cada fatura recebe um só; ver assinatura.emails.js).
+    avisoVencimentoEm: { type: Date, default: null },
 
     // Bloqueio manual do suporte, independente do status. Enquanto true, o acesso fica bloqueado mesmo que a
     // assinatura esteja ativa ou em teste. Guarda-chuva para casos que a máquina de estados normal não cobre.

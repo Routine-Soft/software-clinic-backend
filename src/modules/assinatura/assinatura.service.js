@@ -12,6 +12,7 @@ import { IndicacaoService } from '../indicacao/indicacao.service.js'
 import { exigirCabeNoIndividual } from '../plano/plano.limites.js'
 import { StripeService } from './assinatura.stripe.js'
 import { ehBrasil } from '../shared/utils/pais.js'
+import { enviarPagamentoRecebido } from './assinatura.emails.js'
 
 // MP_API_URL existe só para apontar os testes automatizados para um Mercado Pago falso.
 const MP_API = process.env.MP_API_URL || 'https://api.mercadopago.com'
@@ -126,14 +127,20 @@ function pagamentoParaDTO(pagamento) {
 }
 
 // Dias de tolerância para quem está com o pagamento em atraso antes de perder o acesso.
-export const DIAS_DE_TOLERANCIA_INADIMPLENTE = 5
+export const DIAS_DE_TOLERANCIA = 3
 
 const DIA_EM_MS = 24 * 60 * 60 * 1000
+
+function fimDaTolerancia(inicioDoAtraso) {
+    return new Date(new Date(inicioDoAtraso).getTime() + DIAS_DE_TOLERANCIA * DIA_EM_MS)
+}
+
+const MOTIVO_PIX_VENCIDO = 'O período pago por Pix terminou. Renove o pagamento para continuar usando o sistema.'
 
 // Regra de bloqueio do sistema. Só olha datas e status, sem gravar nada.
 //  - trial: acesso até o fim do teste
 //  - pendente: quem clicou em "assinar" durante o teste continua no teste até ele acabar
-//  - ativa: acesso liberado (se foi paga por Pix, só até o fim do período pago)
+//  - ativa: acesso liberado (se foi paga por Pix, até o fim do período pago mais a tolerância)
 //  - cancelada: acesso até o fim do período que já foi pago (proximaCobranca)
 //  - inadimplente: tolerância de alguns dias a partir do atraso
 //  - expirada: bloqueado
@@ -150,11 +157,12 @@ export function avaliarAcesso(assinatura, agora = new Date()) {
 
     switch (assinatura.status) {
         case 'ativa':
-            // Pix não renova sozinho: vale até proximaCobranca, depois disso é preciso pagar de novo.
+            // Pix não renova sozinho: vale até proximaCobranca e, depois disso, é preciso pagar de novo dentro da tolerância.
             if (assinatura.cobranca === 'pix') {
-                return noFuturo(assinatura.proximaCobranca)
-                    ? { liberado: true, motivo: null, ate: assinatura.proximaCobranca }
-                    : { liberado: false, motivo: 'O período pago por Pix terminou. Renove o pagamento para continuar usando o sistema.', ate: null }
+                if (noFuturo(assinatura.proximaCobranca)) return { liberado: true, motivo: null, ate: assinatura.proximaCobranca }
+                return assinatura.proximaCobranca && noFuturo(fimDaTolerancia(assinatura.proximaCobranca))
+                    ? { liberado: true, motivo: null, ate: fimDaTolerancia(assinatura.proximaCobranca) }
+                    : { liberado: false, motivo: MOTIVO_PIX_VENCIDO, ate: null }
             }
             return { liberado: true, motivo: null, ate: null }
 
@@ -175,10 +183,13 @@ export function avaliarAcesso(assinatura, agora = new Date()) {
 
         case 'inadimplente': {
             const desde = assinatura.inadimplenteDesde ?? assinatura.updatedAt ?? agora
-            const limite = new Date(new Date(desde).getTime() + DIAS_DE_TOLERANCIA_INADIMPLENTE * DIA_EM_MS)
-            return limite > agora
-                ? { liberado: true, motivo: null, ate: limite }
-                : { liberado: false, motivo: 'Não conseguimos processar o pagamento da assinatura. Regularize para voltar a usar o sistema.', ate: null }
+            const limite = fimDaTolerancia(desde)
+            if (limite > agora) return { liberado: true, motivo: null, ate: limite }
+            return {
+                liberado: false,
+                motivo: assinatura.cobranca === 'pix' ? MOTIVO_PIX_VENCIDO : 'Não conseguimos processar o pagamento da assinatura. Regularize para voltar a usar o sistema.',
+                ate: null,
+            }
         }
 
         default:
@@ -310,11 +321,16 @@ export const AssinaturaService = {
             assinatura = await AssinaturaModel.findOne({ tenantId }).sort({ createdAt: -1 }).populate('planoId')
         }
 
-        // Teste ou período pago por Pix que passou do prazo vira "expirada" na primeira consulta depois do vencimento.
-        const vencidoTrial = assinatura.status === 'trial' && assinatura.dataFimTrial && assinatura.dataFimTrial < new Date()
-        const vencidoPix = assinatura.status === 'ativa' && assinatura.cobranca === 'pix' && assinatura.proximaCobranca && assinatura.proximaCobranca < new Date()
-        if (vencidoTrial || vencidoPix) {
+        // Teste que passou do prazo vira "expirada" na primeira consulta depois do vencimento.
+        if (assinatura.status === 'trial' && assinatura.dataFimTrial && assinatura.dataFimTrial < new Date()) {
             assinatura.status = 'expirada'
+            await assinatura.save()
+        }
+
+        // Período pago por Pix que passou do prazo fica "em atraso" desde o vencimento: a tolerância vale até o bloqueio.
+        if (assinatura.status === 'ativa' && assinatura.cobranca === 'pix' && assinatura.proximaCobranca && assinatura.proximaCobranca < new Date()) {
+            assinatura.status = 'inadimplente'
+            assinatura.inadimplenteDesde = assinatura.proximaCobranca
             await assinatura.save()
         }
 
@@ -660,8 +676,9 @@ export const AssinaturaService = {
         if (!assinatura) return
 
         const agora = new Date()
-        const temPeriodoPago = (assinatura.status === 'ativa' && assinatura.cobranca === 'pix') || assinatura.status === 'cancelada'
-        const base = temPeriodoPago && assinatura.proximaCobranca && assinatura.proximaCobranca > agora ? assinatura.proximaCobranca : agora
+        const temPeriodoPago = (['ativa', 'inadimplente'].includes(assinatura.status) && assinatura.cobranca === 'pix') || assinatura.status === 'cancelada'
+        // Pago dentro da tolerância: o novo período conta do vencimento, senão os dias de atraso viram dias grátis.
+        const base = temPeriodoPago && assinatura.proximaCobranca && avaliarAcesso(assinatura, agora).liberado ? assinatura.proximaCobranca : agora
 
         // Cobrança recorrente antiga (em atraso, pausada no Mercado Pago) é encerrada para não continuar cobrando ao lado do Pix.
         if (assinatura.status === 'inadimplente' && assinatura.mercadoPagoPreapprovalId) {
@@ -687,6 +704,7 @@ export const AssinaturaService = {
         assinatura.inadimplenteDesde = null
         assinatura.proximaCobranca = new Date(base.getTime() + PIX_DIAS_DE_ACESSO * DIA_EM_MS)
         await assinatura.save()
+        await enviarPagamentoRecebido(assinatura)
     },
 
     async processarWebhookPreapproval(preapprovalId) {
@@ -795,6 +813,7 @@ export const AssinaturaService = {
                 await this.devolverDescontoNoCartao(assinatura.tenantId, registro.value, payment)
                 const final = await PagamentoModel.findById(registro.value._id, 'valor')
                 if (final.valor > 0) await IndicacaoService.liberarPeloPagamento(assinatura.tenantId, registro.value._id)
+                await enviarPagamentoRecebido(assinatura)
             }
         } else if (['rejected', 'cancelled'].includes(payment.status)) {
             // Primeiro pagamento recusado (nunca houve período pago): não é atraso. Continua pendente até o Mercado Pago

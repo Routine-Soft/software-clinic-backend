@@ -29,6 +29,11 @@ Arquivos: `src/modules/assinatura/` (`assinatura.service.js` Mercado Pago, `assi
 - Variáveis: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (as reais estão só no `.env` do servidor). A conta Stripe é a mesma de outros produtos do Stanley (Start Business, WebSite): os do Sonelia têm "Sonelia" no nome.
 - Excluir clínica no super admin encerra antes a assinatura do Stripe.
 
+## Vencimento e atraso
+- **Tolerância de 3 dias** (`DIAS_DE_TOLERANCIA`): Pix vencido vira `inadimplente` com `inadimplenteDesde = proximaCobranca` (na consulta `obterAssinaturaAtual`) e o acesso segue até o fim da tolerância; cartão recusado usa a mesma tolerância. Pix pago na tolerância conta os 30 dias a partir do vencimento antigo.
+- **E-mails** (`assinatura.emails.js`, nos três idiomas): aviso 3 dias antes (rotina `assinatura.agendador.js`, de hora em hora, só em produção; `avisoVencimentoEm` evita repetir) e agradecimento a cada pagamento (Pix, crédito, cartão e Stripe).
+- **Telas:** barra e janela em `modules/assinatura/components/AvisoVencimento.jsx` e `ModalVencimento.jsx`; regras em `avisoDeVencimento` (`assinatura.utils.js`).
+
 ## Afiliados e indicação (só valem para pagamentos em reais)
 - **Afiliado:** comissão de **50% da primeira mensalidade** da clínica indicada, liberada no 8º dia (prazo de desistência); paga por Pix pelo super admin.
 - **Indique e ganhe:** a clínica que indica ganha **50% de desconto** no próximo pagamento.

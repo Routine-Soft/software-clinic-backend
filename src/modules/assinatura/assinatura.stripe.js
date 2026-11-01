@@ -7,6 +7,7 @@ import { getStripe, stripeConfigurado } from '../../config/stripe.js'
 import { ehBrasil } from '../shared/utils/pais.js'
 import { exigirCabeNoIndividual } from '../plano/plano.limites.js'
 import AppError from '../../errors/AppError.js'
+import { enviarPagamentoRecebido } from './assinatura.emails.js'
 
 // Idioma da página de pagamento do Stripe, conforme o idioma do site.
 const LOCALE_DO_STRIPE = { pt: 'pt-BR', en: 'en', es: 'es-419' }
@@ -245,7 +246,7 @@ export const StripeService = {
         if (aprovada) {
             if (!fatura.amount_paid) return
             // O Stripe pode reenviar o mesmo aviso: cada fatura conta uma vez só.
-            await PagamentoModel.findOneAndUpdate(
+            const registro = await PagamentoModel.findOneAndUpdate(
                 { stripeInvoiceId: fatura.id },
                 {
                     $setOnInsert: {
@@ -259,8 +260,13 @@ export const StripeService = {
                         aprovadoEm: new Date(),
                     },
                 },
-                { upsert: true }
+                { upsert: true, includeResultMetadata: true }
             )
+            // O aviso da fatura pode chegar antes do da assinatura: a data da próxima fatura vem da própria fatura.
+            if (!registro.lastErrorObject?.updatedExisting) {
+                const fimDoPeriodoPago = fatura.lines?.data?.[0]?.period?.end
+                await enviarPagamentoRecebido(assinatura, fimDoPeriodoPago ? new Date(fimDoPeriodoPago * 1000) : assinatura.proximaCobranca)
+            }
         } else if (assinatura.status === 'ativa') {
             assinatura.status = 'inadimplente'
             assinatura.inadimplenteDesde = new Date()

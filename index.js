@@ -29,6 +29,7 @@ import { termoRoutes } from "./src/modules/termo/termo.routes.js";
 import { anamneseRoutes } from "./src/modules/anamnese/anamnese.routes.js";
 import { lembreteWhatsappRoutes } from "./src/modules/lembrete-whatsapp/lembrete.routes.js";
 import { iniciarLembretesWhatsapp } from "./src/modules/lembrete-whatsapp/lembrete.agendador.js";
+import { iniciarAvisosDeVencimento } from "./src/modules/assinatura/assinatura.agendador.js";
 import { AcompanhamentoService } from "./src/modules/paciente/acompanhamento.service.js";
 
 const fastify = Fastify({ logger: true })
@@ -100,6 +101,7 @@ const start = async () => {
     // Pacientes de antes do "profissionais que acompanham": monta a lista pelas consultas (uma vez só).
     // Só no servidor: o ambiente de desenvolvimento usa o mesmo banco e não deve mexer nos dados reais.
     if (process.env.NODE_ENV === 'production') {
+      iniciarAvisosDeVencimento(fastify.log)
       AcompanhamentoService.preencherPacientesAntigos()
         .then((n) => { if (n > 0) fastify.log.info(`Acompanhamentos montados para ${n} paciente(s) antigos`) })
         .catch((erro) => fastify.log.error(erro, 'Falha ao montar os acompanhamentos dos pacientes antigos'))
