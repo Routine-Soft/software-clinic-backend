@@ -21,7 +21,6 @@
     "mercadopago": "^3.6.1",
     "mongodb": "^7.6.0",
     "mongoose": "^9.10.1",
-    "node": "^26.8.2",
     "node-thermal-printer": "^4.6.1",
     "nodemon": "^3.1.14",
     "sharp": "^0.35.4",
