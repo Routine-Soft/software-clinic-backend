@@ -1,3 +1,4 @@
+import mongoose from 'mongoose'
 import PacienteModel from './paciente.model.js'
 import { createPacienteDTO, updatePacienteDTO } from './paciente.dto.js'
 import ProntuarioModel from '../prontuario/prontuario.model.js'
@@ -95,6 +96,25 @@ export const PacienteService = {
         }
 
         return paciente
+    },
+
+    // Só pacientes da própria clínica; ids inválidos são ignorados. Devolve quantos ficaram com o valor pedido.
+    async lembretesWhatsappEmMassa(tenantId, ids, aceita) {
+        if (!Array.isArray(ids) || ids.length === 0) {
+            throw new AppError('Selecione pelo menos um paciente', 400)
+        }
+        if (typeof aceita !== 'boolean') {
+            throw new AppError('Informe se os lembretes no WhatsApp ficam ativados ou desativados', 400)
+        }
+        if (ids.length > 2000) {
+            throw new AppError('Selecione no máximo 2000 pacientes por vez', 400)
+        }
+        const validos = ids.filter((id) => mongoose.isValidObjectId(id))
+        const resultado = await PacienteModel.updateMany(
+            { _id: { $in: validos }, tenantId },
+            { $set: { aceitaWhatsapp: aceita } }
+        )
+        return resultado.matchedCount
     },
 
     async deletePaciente(id, tenantId) {

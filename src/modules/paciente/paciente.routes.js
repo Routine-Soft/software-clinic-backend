@@ -12,6 +12,7 @@ export async function pacienteRoutes(fastify) {
         fastify.get('/pacientes', PacienteController.getAllPacientes)
         fastify.get('/pacientes/:id', PacienteController.getPacienteById)
         fastify.post('/pacientes', PacienteController.createPaciente)
+        fastify.post('/pacientes/lembretes-whatsapp', PacienteController.lembretesWhatsappEmMassa)
         fastify.patch('/pacientes/:id', PacienteController.updatePaciente)
         fastify.delete('/pacientes/:id', PacienteController.deletePaciente)
         fastify.post('/pacientes/:id/acompanhamentos', PacienteController.adicionarAcompanhamento)

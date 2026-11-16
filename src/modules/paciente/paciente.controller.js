@@ -27,6 +27,16 @@ export const PacienteController = {
         return reply.send({ data: paciente, message: 'Paciente atualizado com sucesso' })
     },
 
+    // Vários pacientes de uma vez: ligar ou desligar os lembretes de consulta no WhatsApp.
+    async lembretesWhatsappEmMassa(req, reply) {
+        const { ids, aceita } = req.body ?? {}
+        const total = await PacienteService.lembretesWhatsappEmMassa(req.user.tenantId, ids, aceita)
+        const message = aceita
+            ? (total === 1 ? 'Lembretes no WhatsApp ativados para 1 paciente' : `Lembretes no WhatsApp ativados para ${total} pacientes`)
+            : (total === 1 ? 'Lembretes no WhatsApp desativados para 1 paciente' : `Lembretes no WhatsApp desativados para ${total} pacientes`)
+        return reply.send({ data: { total }, message })
+    },
+
     async adicionarAcompanhamento(req, reply) {
         const paciente = await PacienteService.adicionarAcompanhamento(req.params.id, req.user.tenantId, req.body?.profissionalId)
         return reply.send({ data: paciente, message: 'Profissional incluído no acompanhamento do paciente' })
