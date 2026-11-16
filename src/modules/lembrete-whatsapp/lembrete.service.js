@@ -12,6 +12,7 @@ import { montarTexto } from './lembrete.texto.js'
 //  - consulta marcada em cima da hora (menos de 2 horas) não recebe;
 //  - só para paciente que aceita lembretes no WhatsApp, em clínica com plano que inclui o recurso,
 //    WhatsApp conectado e lembretes ligados;
+//  - no plano Grátis, até 10 por mês (`limites.lembretesMes`); passou disso, as consultas ficam sem lembrete;
 //  - uma pausa de alguns segundos entre as mensagens, para o WhatsApp não tratar a clínica como robô.
 const HORA_INICIO = 8
 const HORA_FIM = 20
@@ -36,6 +37,25 @@ export function inicioDaConsulta(agenda) {
 export function horaDeEnviar(agenda, agora = new Date()) {
     const falta = inicioDaConsulta(agenda) - agora
     return falta <= ANTECEDENCIA_MS && falta >= MINIMO_MS
+}
+
+// "2026-11": o mês de Brasília, que conta os lembretes do plano Grátis.
+export function mesEmBrasilia(agora = new Date()) {
+    return agora.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 7)
+}
+
+export function enviadosNoMes(config, mes = mesEmBrasilia()) {
+    return config?.usoMes?.mes === mes ? config.usoMes.enviados ?? 0 : 0
+}
+
+// Soma um lembrete ao mês (o contador volta a 1 quando o mês muda).
+function contarNoMes(config, mes) {
+    return WhatsappModel.updateOne({ _id: config._id }, [{
+        $set: {
+            'usoMes.enviados': { $cond: [{ $eq: ['$usoMes.mes', mes] }, { $add: [{ $ifNull: ['$usoMes.enviados', 0] }, 1] }, 1] },
+            'usoMes.mes': mes,
+        },
+    }])
 }
 
 function primeiroNome(nome) {
@@ -90,10 +110,14 @@ export const LembreteService = {
         const depoisDeAmanha = new Date(hoje)
         depoisDeAmanha.setUTCDate(depoisDeAmanha.getUTCDate() + 2)
 
+        const mes = mesEmBrasilia(agora)
         let enviados = 0
         for (const config of await WhatsappModel.find({ ativo: true })) {
             const acesso = await AssinaturaService.verificarAcesso(config.tenantId)
             if (acesso.bloqueado || !acesso.recursos.includes('whatsapp')) continue
+            const limite = acesso.limites?.lembretesMes ?? null
+            let restam = limite === null ? Infinity : limite - enviadosNoMes(config, mes)
+            if (restam <= 0) continue
 
             const agendas = (await AgendaModel.find({
                 tenantId: config.tenantId,
@@ -105,6 +129,7 @@ export const LembreteService = {
                 .populate('profissionalId', 'nome')
                 .lean())
                 .filter((a) => a.pacienteId?.aceitaWhatsapp && horaDeEnviar(a, agora))
+                .sort((a, b) => inicioDaConsulta(a) - inicioDaConsulta(b))
             if (!agendas.length) continue
 
             // Celular desconectado: espera a clínica reconectar (os lembretes continuam pendentes).
@@ -113,8 +138,13 @@ export const LembreteService = {
             const clinica = await UserModel.findById(config.tenantId, 'nomeEmpresa pais').lean()
             const locale = LOCALE[idiomaDoPais(clinica?.pais)]
             for (const agenda of agendas) {
+                if (restam <= 0) break
                 if (enviados > 0) await pausaEntreMensagens()
-                if (await enviarLembrete(agenda, config, clinica ?? {}, locale)) enviados++
+                if (await enviarLembrete(agenda, config, clinica ?? {}, locale)) {
+                    enviados++
+                    restam--
+                    await contarNoMes(config, mes)
+                }
             }
         }
         return { enviados }

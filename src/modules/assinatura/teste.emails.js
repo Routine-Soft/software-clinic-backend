@@ -29,7 +29,7 @@ const ETAPAS = {
         fim: {
             assunto: 'Seu teste da Sonelia termina amanhã',
             titulo: 'Seu teste termina amanhã',
-            texto: 'Depois do teste, sua clínica continua no plano Grátis, com a agenda e até 10 pacientes. Prontuário, anamnese, TCLE, convênios e a equipe ficam nos planos pagos, a partir de R$ 129 por mês. Nada do que você já registrou é perdido.',
+            texto: 'Depois do teste, sua clínica continua no plano Grátis, com a agenda e até 20 pacientes. Prontuário, anamnese, TCLE, convênios e a equipe ficam nos planos pagos, a partir de R$ 129 por mês. Nada do que você já registrou é perdido.',
             botao: 'Ver os planos',
             rota: '/assinaturas',
         },
@@ -52,7 +52,7 @@ const ETAPAS = {
         fim: {
             assunto: 'Your Sonelia trial ends tomorrow',
             titulo: 'Your trial ends tomorrow',
-            texto: 'After the trial, your clinic stays on the Free plan, with the schedule and up to 10 patients. Health records, intake forms, consent forms, insurance plans and the team are in the paid plans. Nothing you have already recorded is lost.',
+            texto: 'After the trial, your clinic stays on the Free plan, with the schedule and up to 20 patients. Health records, intake forms, consent forms, insurance plans and the team are in the paid plans. Nothing you have already recorded is lost.',
             botao: 'See the plans',
             rota: '/assinaturas',
         },
@@ -75,7 +75,7 @@ const ETAPAS = {
         fim: {
             assunto: 'Tu prueba de Sonelia termina mañana',
             titulo: 'Tu prueba termina mañana',
-            texto: 'Después de la prueba, tu clínica sigue en el plan Gratis, con la agenda y hasta 10 pacientes. La historia clínica, la anamnesis, el consentimiento informado, los seguros y el equipo están en los planes pagos. No pierdes nada de lo que ya registraste.',
+            texto: 'Después de la prueba, tu clínica sigue en el plan Gratis, con la agenda y hasta 20 pacientes. La historia clínica, la anamnesis, el consentimiento informado, los seguros y el equipo están en los planes pagos. No pierdes nada de lo que ya registraste.',
             botao: 'Ver los planes',
             rota: '/assinaturas',
         },

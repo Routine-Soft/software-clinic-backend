@@ -18,7 +18,7 @@ Desde 2026-11 os lembretes saem do **número da própria clínica**, conectado p
 ## Backend (`src/modules/lembrete-whatsapp/`)
 - `evolution.client.js`: criar conexão, QR Code, estado (`open`/`connecting`/`close`), perfil, apagar, enviar texto; `telefoneWhatsapp` (Brasil com DDD, ou `+` e o código do país).
 - `whatsapp.model.js` (`whatsapp_clinicas`): uma por clínica, conexão `sonelia-<tenantId>`, número, lembretes ligados e texto (variáveis `{paciente}`, `{clinica}`, `{data}`, `{hora}`, `{profissional}`; `lembrete.texto.js`).
-- `whatsapp.routes.js` (`/api/whatsapp`, admin e recepção): situação, `conectar` (devolve o QR Code; a tela chama de 5 em 5 segundos), `desconectar`, `PATCH` (ligado e texto), `teste`. Recurso `whatsapp` do plano (Basic, Pro e Rede; o Grátis tem cadeado).
+- `whatsapp.routes.js` (`/api/whatsapp`, admin e recepção): situação, `conectar` (devolve o QR Code; a tela chama de 5 em 5 segundos), `desconectar`, `PATCH` (ligado e texto), `teste`. Recurso `whatsapp` em todos os planos; o Grátis manda até 10 lembretes por mês (`limites.lembretesMes`, contador `usoMes` no `whatsapp_clinicas`; o envio de teste não conta).
 - `lembrete.service.js` + `lembrete.agendador.js` (de 10 em 10 minutos): manda **24 horas antes** da consulta, só entre **8h e 20h** de Brasília (se as 24h caem de madrugada, sai às 8h), nunca a menos de 2 horas da consulta; só para paciente com `aceitaWhatsapp` (consentimento, LGPD), clínica com o recurso no plano, lembretes ligados e celular conectado (desconectado, espera reconectar). Pausa de 8 a 20 segundos entre mensagens para diminuir o risco de bloqueio.
 - No agendamento: `lembrete.enviadoEm`, `situacao` (`enviando`, `enviado`, `falhou`) e `erro`; trocar dia, horário ou paciente zera.
 

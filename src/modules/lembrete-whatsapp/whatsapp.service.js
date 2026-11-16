@@ -3,6 +3,7 @@ import UserModel from '../user/user.model.js'
 import WhatsappModel, { TEXTO_PADRAO } from './whatsapp.model.js'
 import { Evolution, evolutionConfigurada, telefoneWhatsapp } from './evolution.client.js'
 import { montarTexto } from './lembrete.texto.js'
+import { enviadosNoMes } from './lembrete.service.js'
 
 // Nome da conexão da clínica na Evolution.
 const instanciaDa = (tenantId) => `sonelia-${tenantId}`
@@ -22,7 +23,8 @@ async function registrarConexao(config) {
     return await config.save()
 }
 
-function paraDTO(config, estado, qrcode = null) {
+// `limiteMes`: lembretes por mês do plano (null = sem limite); `enviadosMes`: quantos já saíram neste mês.
+function paraDTO(config, estado, qrcode = null, limiteMes = null) {
     return {
         disponivel: evolutionConfigurada(),
         conectado: estado === 'open',
@@ -33,16 +35,18 @@ function paraDTO(config, estado, qrcode = null) {
         texto: config.texto,
         textoPadrao: TEXTO_PADRAO,
         qrcode,
+        limiteMes,
+        enviadosMes: enviadosNoMes(config),
     }
 }
 
 export const WhatsappService = {
-    async situacao(tenantId) {
+    async situacao(tenantId, limiteMes = null) {
         const config = await configDa(tenantId)
-        if (!evolutionConfigurada()) return paraDTO(config, null)
+        if (!evolutionConfigurada()) return paraDTO(config, null, null, limiteMes)
         const estado = await Evolution.estado(config.instancia)
         if (estado === 'open') await registrarConexao(config)
-        return paraDTO(config, estado)
+        return paraDTO(config, estado, null, limiteMes)
     },
 
     // Começa (ou continua) a conexão e devolve o QR Code para o celular da clínica ler.
@@ -69,7 +73,7 @@ export const WhatsappService = {
         return paraDTO(config, null)
     },
 
-    async atualizar(tenantId, body) {
+    async atualizar(tenantId, body, limiteMes = null) {
         const config = await configDa(tenantId)
         if (typeof body?.ativo === 'boolean') config.ativo = body.ativo
         if (typeof body?.texto === 'string') {
@@ -79,7 +83,7 @@ export const WhatsappService = {
             config.texto = texto
         }
         await config.save()
-        return await this.situacao(tenantId)
+        return await this.situacao(tenantId, limiteMes)
     },
 
     // Mensagem de teste para um número escolhido, com dados de exemplo no texto.

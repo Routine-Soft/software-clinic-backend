@@ -10,11 +10,11 @@ Arquivos: `src/modules/assinatura/` (`assinatura.service.js` Mercado Pago, `assi
 **Nunca faça cobrança real em teste.** Não clique em botões/interruptores da tela de planos do super admin durante testes (um teste já desativou o Pro).
 
 ## Planos
-- **Freemium (2026-11):** três níveis calculados em `acessoDaClinica` (`assinatura.service.js`) com as regras de `plano.limites.js`, carregados em `req.acesso` pelo `exigirAssinaturaAtiva`. Sem plano pago valendo a clínica **não fica bloqueada**: cai no **Grátis** (agenda, até 10 pacientes, 1 profissional, TV com "Feito com Sonelia"). Só o acesso revogado pelo suporte dá 402 `ASSINATURA_INATIVA`.
+- **Freemium (2026-11):** três níveis calculados em `acessoDaClinica` (`assinatura.service.js`) com as regras de `plano.limites.js`, carregados em `req.acesso` pelo `exigirAssinaturaAtiva`. Sem plano pago valendo a clínica **não fica bloqueada**: cai no **Grátis** (agenda, até 20 pacientes, 1 profissional, avaliações neuro e NR-01, até 10 lembretes pelo WhatsApp por mês, TV com "Feito com Sonelia"). Só o acesso revogado pelo suporte dá 402 `ASSINATURA_INATIVA`.
   - Rotas de recurso pago usam `exigirRecurso('<recurso>')`: barra só criar/editar (a leitura do que já foi salvo continua) com 402 `RECURSO_DO_PLANO` + `recurso`; o site abre a janela de assinar (`PlanoProvider`, `RecursoBloqueadoModal`) e o menu mostra cadeado. Cliques nos cadeados vão para `planos_bloqueios` (cartão no Painel Super Admin).
 - **Teste grátis:** plano interno (`tipo: 'gratis'`, nome "Teste grátis"), 14 dias com tudo liberado (nível Pro), sem cartão; depois vira o plano Grátis. E-mails de ajuda no dia 1, dia 3 e na véspera do fim (`teste.emails.js`). Não aparece na lista de planos.
 - O nível de cada plano pago fica em `plano.nivel` (`basic`, `pro`, `rede`; trocou o antigo `individual` em 2026-11).
-- **Basic** (antes "Individual"): R$ 129/mês. Até 2 profissionais e 100 pacientes, sem recepção e sem repasses.
+- **Basic** (antes "Individual"): R$ 129/mês. Até 2 profissionais e pacientes sem limite, sem recepção e sem repasses.
 - **Pro:** R$ 249/mês, até 25 profissionais e pacientes sem limite.
 - **Rede:** R$ 690/mês, até 100 profissionais, com implantação assistida e suporte prioritário (só em reais).
 - **Preço travado:** quando o preço de um plano sobe (`updatePlano`), quem já assina fica com o valor antigo em `assinatura.precoTravado` ({ planoId, valor }); `precoDaAssinatura` usa esse valor no Pix e no cartão do Mercado Pago. Trocar de plano cobra o preço do plano novo. A CurArt ficou travada em R$ 200 no Pro.

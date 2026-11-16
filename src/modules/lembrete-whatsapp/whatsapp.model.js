@@ -15,6 +15,11 @@ const whatsappSchema = new mongoose.Schema({
     // Lembretes ligados pela clínica e o texto deles (com as variáveis entre chaves).
     ativo: { type: Boolean, default: true },
     texto: { type: String, default: TEXTO_PADRAO, maxlength: 1000 },
+    // Lembretes enviados no mês (de Brasília, "2026-11"). O plano Grátis tem limite por mês (ver plano.limites.js).
+    usoMes: {
+        mes: { type: String, default: null },
+        enviados: { type: Number, default: 0 },
+    },
 }, { timestamps: true })
 
 const WhatsappModel = mongoose.models.whatsapp_clinicas || mongoose.model('whatsapp_clinicas', whatsappSchema)

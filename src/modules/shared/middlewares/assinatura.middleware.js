@@ -22,11 +22,9 @@ const MENSAGEM_DO_RECURSO = {
     anamnese: 'Anamneses são um recurso dos planos pagos. As já preenchidas continuam disponíveis para leitura.',
     termo: 'O termo de consentimento (TCLE) é um recurso dos planos pagos.',
     convenio: 'Convênios são um recurso dos planos pagos.',
-    avaliacoes: 'As avaliações são um recurso dos planos pagos. As já registradas continuam disponíveis para leitura.',
     empresas: 'Empresas clientes são um recurso dos planos pagos.',
     reunioes: 'A agenda de reuniões é um recurso dos planos pagos.',
     repasse: 'Repasses são um recurso do plano Pro.',
-    whatsapp: 'Os lembretes pelo WhatsApp são um recurso dos planos pagos.',
 }
 
 // Barra as rotas de um recurso que o plano da clínica não tem. Vem depois de `exigirAssinaturaAtiva`.

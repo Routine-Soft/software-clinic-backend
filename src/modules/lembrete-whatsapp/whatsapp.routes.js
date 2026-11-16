@@ -3,7 +3,7 @@ import { authenticate, authorize } from '../shared/middlewares/auth.middleware.j
 import { exigirAssinaturaAtiva, exigirRecurso } from '../shared/middlewares/assinatura.middleware.js'
 
 // WhatsApp da clínica (lembretes de consulta). Admin, recepção e o super admin (na clínica dele) configuram;
-// o plano Grátis só vê a situação.
+// todos os planos têm o recurso (o Grátis com limite de lembretes por mês).
 export async function whatsappRoutes(fastify) {
     fastify.register(async function (fastify) {
         fastify.addHook('preHandler', authenticate)
