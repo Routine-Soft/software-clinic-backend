@@ -11,7 +11,7 @@ import AppError from '../../errors/AppError.js'
 //  - gratis: sem plano pago valendo (teste acabou, pagamento venceu): agenda, até 10 pacientes e 1 profissional.
 // O que não está em RECURSOS é livre em qualquer nível: agenda, pacientes, lista de espera, sala de espera, cadastros.
 // Ninguém perde o que já registrou: sem o recurso, a leitura continua liberada e só a criação e a edição ficam barradas.
-export const RECURSOS = ['prontuario', 'anamnese', 'termo', 'convenio', 'avaliacoes', 'empresas', 'reunioes', 'repasse', 'recepcao']
+export const RECURSOS = ['prontuario', 'anamnese', 'termo', 'convenio', 'avaliacoes', 'empresas', 'reunioes', 'whatsapp', 'repasse', 'recepcao']
 
 const RECURSOS_DO_NIVEL = {
     gratis: [],

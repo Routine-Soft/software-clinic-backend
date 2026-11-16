@@ -18,7 +18,7 @@ const COMISSAO_PAGA = 'O repasse deste atendimento já foi pago ao profissional'
 // o profissional não confirma o próprio atendimento (o médico dono da clínica entra como admin).
 const QUEM_CONFIRMA = ['admin', 'recepcao', 'super_admin']
 
-const LEMBRETE_VAZIO = { enviadoEm: null, mensagemId: null, situacao: null, erro: null, resposta: null, respondidoEm: null }
+const LEMBRETE_VAZIO = { enviadoEm: null, mensagemId: null, situacao: null, erro: null }
 
 async function buscarCompleta(id, tenantId) {
     return await AgendaModel.findOne({ _id: id, tenantId })

@@ -1,12 +1,13 @@
 import { LembreteService } from './lembrete.service.js'
-import { whatsappConfigurado } from './whatsapp.client.js'
+import { evolutionConfigurada } from './evolution.client.js'
 
 const INTERVALO_MS = 10 * 60 * 1000
 
-// Confere a cada 10 minutos se há lembretes a enviar. Sem as variáveis do WhatsApp, não faz nada.
+// Confere a cada 10 minutos se há lembretes a enviar. Sem a Evolution API configurada (EVOLUTION_API_URL e
+// EVOLUTION_API_KEY, que só o servidor tem), não faz nada.
 export function iniciarLembretesWhatsapp(log) {
-    if (!whatsappConfigurado()) {
-        log.info('WhatsApp não configurado: lembretes de consulta desligados')
+    if (!evolutionConfigurada()) {
+        log.info('Evolution API não configurada: lembretes de consulta pelo WhatsApp desligados')
         return
     }
 

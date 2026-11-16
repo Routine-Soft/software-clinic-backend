@@ -399,4 +399,20 @@ export const MENSAGENS_EN = {
     // Erros genéricos
     'Erro interno do servidor': 'Internal server error',
     'Requisição inválida': 'Invalid request',
+
+    // WhatsApp da clínica (Evolution API)
+    'O WhatsApp não está disponível neste servidor': 'WhatsApp is not available on this server',
+    'Não foi possível falar com o serviço de WhatsApp. Tente de novo em instantes.': 'Could not reach the WhatsApp service. Please try again in a moment.',
+    'Não foi possível preparar o WhatsApp: {0}': 'Could not set up WhatsApp: {0}',
+    'Não foi possível ver a situação do WhatsApp': 'Could not check the WhatsApp status',
+    'Escreva o texto do lembrete': 'Write the reminder text',
+    'O texto do lembrete pode ter no máximo 1000 caracteres': 'The reminder text can have at most 1000 characters',
+    'Conecte o WhatsApp da clínica antes de enviar o teste': 'Connect the clinic\'s WhatsApp before sending the test',
+    'Telefone inválido. Use DDD + número (ou + e o código do país).': 'Invalid phone. Use + and the country code.',
+    'Este número não tem WhatsApp': 'This number does not have WhatsApp',
+    'WhatsApp recusou o envio: {0}': 'WhatsApp refused to send: {0}',
+    'Os lembretes pelo WhatsApp são um recurso dos planos pagos.': 'WhatsApp reminders are a paid plan feature.',
+    'WhatsApp desconectado': 'WhatsApp disconnected',
+    'Lembretes atualizados': 'Reminders updated',
+    'Mensagem de teste enviada': 'Test message sent',
 };

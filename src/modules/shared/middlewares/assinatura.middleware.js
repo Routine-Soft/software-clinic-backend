@@ -26,6 +26,7 @@ const MENSAGEM_DO_RECURSO = {
     empresas: 'Empresas clientes são um recurso dos planos pagos.',
     reunioes: 'A agenda de reuniões é um recurso dos planos pagos.',
     repasse: 'Repasses são um recurso do plano Pro.',
+    whatsapp: 'Os lembretes pelo WhatsApp são um recurso dos planos pagos.',
 }
 
 // Barra as rotas de um recurso que o plano da clínica não tem. Vem depois de `exigirAssinaturaAtiva`.

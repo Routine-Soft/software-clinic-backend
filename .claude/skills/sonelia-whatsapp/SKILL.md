@@ -1,33 +1,31 @@
 ---
 name: sonelia-whatsapp
-description: Lembretes de consulta pelo WhatsApp no Sonelia (WhatsApp Cloud API da Meta): como funcionam, IDs da conta, modelo de mensagem, webhook, como conferir a situação na Meta e o que falta para liberar. Usar ao mexer nos lembretes, quando o Stanley avisar novidade da Meta ou para testar o envio.
+description: Lembretes de consulta pelo WhatsApp no Sonelia, pela Evolution API (cada clínica conecta o próprio número pelo QR Code): servidor, regras de envio, tela da clínica e como testar. Usar ao mexer nos lembretes ou no WhatsApp das clínicas.
 ---
 
-# Lembretes pelo WhatsApp
+# Lembretes pelo WhatsApp (Evolution API)
 
-Código: `src/modules/lembrete-whatsapp/` (`whatsapp.client.js`, `lembrete.service.js`, `lembrete.agendador.js`, `lembrete.routes.js`).
+Desde 2026-11 os lembretes saem do **número da própria clínica**, conectado pelo QR Code, pela **Evolution API** (código aberto, conexão do tipo WhatsApp Web, não oficial). A API oficial da Meta (número da Sonelia, modelo aprovado, webhook) foi removida.
 
-## Como funciona
-- A cada 10 minutos, das **9h às 20h** (Brasília), o servidor envia o lembrete das consultas de **amanhã** ainda não avisadas.
-- Só para clínicas com `lembretesWhatsapp: true` (o super admin liga pelo ícone do WhatsApp na tela **Clínicas**) e com assinatura em dia, e só para pacientes com `aceitaWhatsapp: true` (consentimento no cadastro).
-- Modelo **`lembrete_consulta`** (pt_BR, Utilidade, **aprovado**): "Olá, {{1}}! Lembrete da sua consulta na {{2}} amanhã, {{3}}, às {{4}}. Você confirma sua presença?" com botões **Confirmar** e **Desmarcar** (payload `acao:agendaId`).
-- Resposta do paciente chega pelo webhook: Confirmar grava `lembrete.resposta`; Desmarcar cancela a consulta. Só vale para a mensagem enviada àquela consulta (`context.id`).
-- A situação de cada envio fica em `agendas.lembrete` (`enviando`, `enviado`, `entregue`, `lido`, `falhou` + `erro`).
-- Sem `WHATSAPP_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID` no `.env`, os lembretes ficam desligados.
+**Fase atual: só lembretes.** O sistema não lê nem responde mensagens (o Stanley não quer IA conversando com paciente por enquanto). As respostas do paciente chegam no WhatsApp da clínica, como qualquer conversa.
 
-## Conta na Meta
-- App **Sonelia** id `1650617456727297` (assinado na WABA em 2026-10-16), WABA `1649938686795093`.
-- Número: hoje é o **de teste** da Meta (+1 555-672-8043, Phone Number ID `1387289667798692`), que só manda para até 5 números cadastrados (o do Stanley: 21 99200-2356).
-- Variáveis (só no `.env` do servidor): `WHATSAPP_TOKEN` (token permanente de usuário do sistema), `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`; opcionais `WHATSAPP_TEMPLATE_LEMBRETE`, `WHATSAPP_API_VERSION`.
-- Webhook: `https://api.sonelia.com.br/api/whatsapp/webhook` (verificado pela Meta).
-- Conferir a situação (no servidor, sem mostrar o token):
-  ```bash
-  eval "$(grep -E '^WHATSAPP_(TOKEN|PHONE_NUMBER_ID)=' ~/servidor/env/sonelia.env | sed 's/^/export /')"
-  curl -s "https://graph.facebook.com/v23.0/1649938686795093?fields=health_status,business_verification_status" -H "Authorization: Bearer $WHATSAPP_TOKEN"
-  curl -s "https://graph.facebook.com/v23.0/1649938686795093/message_templates?name=lembrete_consulta&fields=status" -H "Authorization: Bearer $WHATSAPP_TOKEN"
-  ```
+## Servidor (OVH)
+- Containers `evolution` (`evoapicloud/evolution-api:v2.3.7`, 512 MB) e `evolution_db` (Postgres 16, 192 MB) no `~/servidor/docker-compose.yml`. A v2 só aceita Postgres ou MySQL (não MongoDB); ela guarda só a conexão das clínicas (mensagens, contatos e chats desligados no `env/evolution.env`).
+- **Sem porta publicada e sem bloco no Caddy**: só os containers da rede interna falam com ela (`http://evolution:8080`).
+- Chaves: `env/evolution.env` (`AUTHENTICATION_API_KEY`) e `env/evolution_db.env`; a Sonelia usa `EVOLUTION_API_URL` e `EVOLUTION_API_KEY` no `env/sonelia.env`. Sem essas variáveis (computador local), o WhatsApp fica desligado.
+- Logs: `cd ~/servidor && docker compose logs --since 10m evolution`.
 
-## Situação em 2026-10-16 e o que falta
-- O envio sai do servidor, mas a Meta não entrega: **"Business account has been locked"**. Motivos que a Meta mostra: verificação da empresa em andamento e perfil da empresa sem **nome legal, país e site** (Meta Business Suite → Configurações → Informações da empresa).
-- Falta também cadastrar um **número próprio** (não usado no WhatsApp do celular) e trocar o `WHATSAPP_PHONE_NUMBER_ID` no servidor.
-- Quando liberar: testar com uma clínica de teste (paciente com o número do Stanley, consulta amanhã, `lembretesWhatsapp: true`; o servidor envia sozinho em até 10 min), conferir entregue e o botão Confirmar, e tirar o "(em breve)" de "Lembrete de consulta pelo WhatsApp" nos recursos do plano Pro (banco) e na landing.
+## Backend (`src/modules/lembrete-whatsapp/`)
+- `evolution.client.js`: criar conexão, QR Code, estado (`open`/`connecting`/`close`), perfil, apagar, enviar texto; `telefoneWhatsapp` (Brasil com DDD, ou `+` e o código do país).
+- `whatsapp.model.js` (`whatsapp_clinicas`): uma por clínica, conexão `sonelia-<tenantId>`, número, lembretes ligados e texto (variáveis `{paciente}`, `{clinica}`, `{data}`, `{hora}`, `{profissional}`; `lembrete.texto.js`).
+- `whatsapp.routes.js` (`/api/whatsapp`, admin e recepção): situação, `conectar` (devolve o QR Code; a tela chama de 5 em 5 segundos), `desconectar`, `PATCH` (ligado e texto), `teste`. Recurso `whatsapp` do plano (Basic, Pro e Rede; o Grátis tem cadeado).
+- `lembrete.service.js` + `lembrete.agendador.js` (de 10 em 10 minutos): manda **24 horas antes** da consulta, só entre **8h e 20h** de Brasília (se as 24h caem de madrugada, sai às 8h), nunca a menos de 2 horas da consulta; só para paciente com `aceitaWhatsapp` (consentimento, LGPD), clínica com o recurso no plano, lembretes ligados e celular conectado (desconectado, espera reconectar). Pausa de 8 a 20 segundos entre mensagens para diminuir o risco de bloqueio.
+- No agendamento: `lembrete.enviadoEm`, `situacao` (`enviando`, `enviado`, `falhou`) e `erro`; trocar dia, horário ou paciente zera.
+
+## Frontend
+- Tela `#/whatsapp` (`modules/whatsapp/`), no menu em Gestão: conectar pelo QR Code, número conectado, desconectar com confirmação no lugar, texto com as variáveis e prévia, envio de teste.
+- Situação do lembrete aparece no resumo do agendamento (`situacaoDoLembrete` em `agenda.utils.js`).
+
+## Riscos e cuidados
+- O WhatsApp pode bloquear o número da clínica (uso não oficial). Está nos termos de uso: o número e o consentimento dos pacientes são da clínica.
+- Para testar o envio: conectar um número de teste pela tela e usar "Enviar teste". Nunca mandar mensagem para paciente real em teste.
