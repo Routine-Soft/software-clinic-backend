@@ -1,11 +1,12 @@
 import { AnamneseController } from './anamnese.controller.js'
 import { authenticate, authorize } from '../shared/middlewares/auth.middleware.js'
-import { exigirAssinaturaAtiva } from '../shared/middlewares/assinatura.middleware.js'
+import { exigirAssinaturaAtiva, exigirRecurso } from '../shared/middlewares/assinatura.middleware.js'
 
 export async function anamneseRoutes(fastify) {
     fastify.register(async function (fastify) {
         fastify.addHook('preHandler', authenticate)
         fastify.addHook('preHandler', exigirAssinaturaAtiva)
+        fastify.addHook('preHandler', exigirRecurso('anamnese'))
 
         // Modelos (só as perguntas, sem dado de paciente): a dona da clínica, a recepção (auxiliar dela) e quem atende
         // montam. As anamneses preenchidas continuam sigilosas: a recepção não lê nem preenche.

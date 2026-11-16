@@ -22,6 +22,8 @@ const userSchema = new mongoose.Schema({
     // País da clínica (ISO, ex.: BR, US), escolhido no cadastro. Decide a cobrança: Brasil = Mercado Pago em reais,
     // outros países = Stripe em dólar (ver shared/utils/pais.js). Só vale no usuário dono da clínica.
     pais: { type: String, default: 'BR' },
+    // Área de atuação da clínica, escolhida no cadastro (ver clinica-nova.js). Só vale no usuário dono; null = clínica antiga.
+    area: { type: String, default: null },
     // Lembretes de consulta pelo WhatsApp ligados para a clínica (só vale no usuário dono da clínica).
     // Recurso pago: quem liga é o super_admin.
     lembretesWhatsapp: { type: Boolean, default: false },

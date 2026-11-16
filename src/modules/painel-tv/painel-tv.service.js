@@ -90,7 +90,8 @@ export const PainelTvService = {
         if (!painel) throw new AppError('TV não encontrada', 404)
     },
 
-    // O que a TV mostra. A TV de uma clínica com a assinatura vencida mostra o aviso em vez das chamadas.
+    // O que a TV mostra. A TV de uma clínica bloqueada pelo suporte mostra o aviso em vez das chamadas.
+    // No plano Grátis a TV funciona e mostra a marca "Feito com Sonelia" (divulgação na sala de espera).
     async telaDaTv(painel) {
         const agora = new Date()
         if (!painel.ultimoAcessoEm || agora - painel.ultimoAcessoEm > INTERVALO_ULTIMO_ACESSO_MS) {
@@ -104,8 +105,9 @@ export const PainelTvService = {
         return {
             clinica: clinica?.nomeEmpresa ?? '',
             tv: painel.nome,
-            liberado: acesso.liberado,
-            chamadas: acesso.liberado ? await ChamadaService.ultimasDoDia(painel.tenantId) : [],
+            liberado: !acesso.bloqueado,
+            marcaSonelia: acesso.nivel === 'gratis',
+            chamadas: acesso.bloqueado ? [] : await ChamadaService.ultimasDoDia(painel.tenantId),
         }
     },
 }

@@ -1,3 +1,4 @@
+import { areaValida } from './clinica-nova.js'
 import { paisValido } from '../shared/utils/pais.js'
 
 import { interpretarDocumento } from '../assinatura/documento.js'
@@ -13,6 +14,7 @@ export function createUserDTO(body) {
         nomeEmpresa: body.nomeEmpresa,
         role: body.role || 'admin',
         pais: paisValido(body.pais) ?? 'BR',
+        area: areaValida(body.area),
     }
 }
 

@@ -11,7 +11,7 @@ import EmpresaModel from '../empresa/empresa.model.js'
 import AgendaModel from '../agenda/agenda.model.js'
 import PainelTvModel from '../painel-tv/painel-tv.model.js'
 import ChamadaModel from '../chamada/chamada.model.js'
-import { AssinaturaService, avaliarAcesso } from '../assinatura/assinatura.service.js'
+import { AssinaturaService, acessoDaClinica } from '../assinatura/assinatura.service.js'
 import { StripeService } from '../assinatura/assinatura.stripe.js'
 import { paisValido } from '../shared/utils/pais.js'
 import AppError from '../../errors/AppError.js'
@@ -127,7 +127,7 @@ function assinaturaParaDTO(assinatura, mapaPlanos) {
         proximaCobranca: assinatura.proximaCobranca,
         inadimplenteDesde: assinatura.inadimplenteDesde,
         acessoRevogado: !!assinatura.acessoRevogado,
-        acesso: avaliarAcesso(assinatura),
+        acesso: acessoDaClinica({ ...assinatura, planoId: plano }),
     }
 }
 

@@ -1,6 +1,6 @@
 import { AvaliacaoNeuropsicologicaController } from './avaliacao-neuropsicologica.controller.js'
 import { authenticate } from '../shared/middlewares/auth.middleware.js'
-import { exigirAssinaturaAtiva } from '../shared/middlewares/assinatura.middleware.js'
+import { exigirAssinaturaAtiva, exigirRecurso } from '../shared/middlewares/assinatura.middleware.js'
 
 export async function avaliacaoNeuropsicologicaRoutes(fastify) {
 
@@ -8,6 +8,7 @@ export async function avaliacaoNeuropsicologicaRoutes(fastify) {
 
         fastify.addHook('preHandler', authenticate)
         fastify.addHook('preHandler', exigirAssinaturaAtiva)
+        fastify.addHook('preHandler', exigirRecurso('avaliacoes'))
 
         // Quem pode ler e alterar é decidido no serviço, com as regras de sigilo do prontuário.
         fastify.get('/avaliacoes-neuropsicologicas', AvaliacaoNeuropsicologicaController.listar)

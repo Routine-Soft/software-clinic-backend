@@ -1,8 +1,8 @@
 import { ClinicaAdminService } from './clinica-admin.service.js'
-import { avaliarAcesso } from '../assinatura/assinatura.service.js'
+import { acessoDaClinica } from '../assinatura/assinatura.service.js'
 
 function comAcesso(assinatura) {
-    return { ...assinatura.toJSON(), acesso: avaliarAcesso(assinatura) }
+    return { ...assinatura.toJSON(), acesso: acessoDaClinica(assinatura) }
 }
 
 export const ClinicaAdminController = {

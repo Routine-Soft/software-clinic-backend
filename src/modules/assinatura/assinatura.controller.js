@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { AssinaturaService, avaliarAcesso } from './assinatura.service.js'
+import { AssinaturaService, acessoDaClinica } from './assinatura.service.js'
 import { StripeService } from './assinatura.stripe.js'
 import { getStripe, stripeConfigurado } from '../../config/stripe.js'
 import { idiomaDaRequisicao } from '../shared/utils/idioma.js'
@@ -30,7 +30,7 @@ function assinaturaDoWebhookValida(req, dataId) {
 async function comAcesso(assinatura) {
     const dono = await UserModel.findById(assinatura.tenantId, 'pais')
     const pais = dono?.pais ?? 'BR'
-    return { ...assinatura.toJSON(), acesso: avaliarAcesso(assinatura), pais, moeda: moedaDoPais(pais), gateway: gatewayDoPais(pais) }
+    return { ...assinatura.toJSON(), acesso: acessoDaClinica(assinatura), pais, moeda: moedaDoPais(pais), gateway: gatewayDoPais(pais) }
 }
 
 export const AssinaturaController = {

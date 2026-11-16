@@ -10,6 +10,7 @@ import { hojeDiaPuro } from '../shared/utils/dia-puro.js'
 import { regraDoServico, calcularComissao } from '../servico/servico.regras.js'
 import { AcompanhamentoService } from '../paciente/acompanhamento.service.js'
 import AppError from '../../errors/AppError.js'
+import { alertarPrimeiroAgendamento } from './primeiro-agendamento.alerta.js'
 
 const COMISSAO_PAGA = 'O repasse deste atendimento já foi pago ao profissional'
 
@@ -228,6 +229,7 @@ export const AgendaService = {
 
         const agendas = await AgendaModel.insertMany(documentos)
         await AcompanhamentoService.registrarConsulta(tenantId, agendaDTO.pacienteId, agendaDTO.profissionalId, datas[0])
+        await alertarPrimeiroAgendamento(tenantId, agendas.length)
         return agendas
     },
 

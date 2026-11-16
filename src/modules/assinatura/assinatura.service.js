@@ -9,7 +9,7 @@ import PlanoModel from '../plano/plano.model.js'
 import UserModel from '../user/user.model.js'
 import AppError from '../../errors/AppError.js'
 import { IndicacaoService } from '../indicacao/indicacao.service.js'
-import { exigirCabeNoIndividual } from '../plano/plano.limites.js'
+import { exigirCabeNoIndividual, acessoDoNivel } from '../plano/plano.limites.js'
 import { StripeService } from './assinatura.stripe.js'
 import { ehBrasil } from '../shared/utils/pais.js'
 import { enviarPagamentoRecebido } from './assinatura.emails.js'
@@ -197,6 +197,24 @@ export function avaliarAcesso(assinatura, agora = new Date()) {
     }
 }
 
+// O que a clínica pode usar agora (ver plano.limites.js). Só fica bloqueada de vez com o acesso revogado pelo suporte
+// (ou sem assinatura); sem plano pago valendo, cai no plano Grátis em vez de perder o sistema.
+//  - teste e pagamento aguardando confirmação no teste: tudo liberado (nível "pro");
+//  - plano pago valendo: "basic" (plano com `individual`) ou "pro";
+//  - o resto (teste acabou, pagamento vencido, cancelada): "gratis".
+export function acessoDaClinica(assinatura, agora = new Date()) {
+    const avaliacao = avaliarAcesso(assinatura, agora)
+    if (!assinatura || assinatura.acessoRevogado) {
+        return { ...avaliacao, bloqueado: true, ...acessoDoNivel('gratis') }
+    }
+    let nivel = 'gratis'
+    if (avaliacao.liberado) {
+        const emTeste = ['trial', 'pendente'].includes(assinatura.status)
+        nivel = !emTeste && assinatura.planoId?.individual === true ? 'basic' : 'pro'
+    }
+    return { ...avaliacao, bloqueado: false, ...acessoDoNivel(nivel) }
+}
+
 // Checkout que nunca foi pago (desistência, ou recusado/cancelado pelo Mercado Pago): a clínica volta ao plano gratuito,
 // em teste se ainda houver prazo, senão expirada. Não há período pago, então não sobra acesso extra.
 async function voltarAoGratuito(assinatura) {
@@ -338,8 +356,8 @@ export const AssinaturaService = {
     },
 
     async verificarAcesso(tenantId) {
-        const assinatura = await AssinaturaModel.findOne({ tenantId }).sort({ createdAt: -1 })
-        return avaliarAcesso(assinatura)
+        const assinatura = await AssinaturaModel.findOne({ tenantId }).sort({ createdAt: -1 }).populate('planoId', 'individual')
+        return acessoDaClinica(assinatura)
     },
 
     // Cancela a cobrança recorrente no Mercado Pago. O cliente mantém o acesso até o fim do período já pago.

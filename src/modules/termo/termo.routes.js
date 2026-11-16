@@ -1,6 +1,6 @@
 import { TermoController } from './termo.controller.js'
 import { authenticate, authorize } from '../shared/middlewares/auth.middleware.js'
-import { exigirAssinaturaAtiva } from '../shared/middlewares/assinatura.middleware.js'
+import { exigirAssinaturaAtiva, exigirRecurso } from '../shared/middlewares/assinatura.middleware.js'
 
 export async function termoRoutes(fastify) {
     // Paciente, sem login: abre o link, lê e assina. A chave do link é o próprio token.
@@ -10,6 +10,7 @@ export async function termoRoutes(fastify) {
     fastify.register(async function (fastify) {
         fastify.addHook('preHandler', authenticate)
         fastify.addHook('preHandler', exigirAssinaturaAtiva)
+        fastify.addHook('preHandler', exigirRecurso('termo'))
 
         // A recepção é a auxiliar da dona: também escreve os modelos de termo.
         const equipe = { preHandler: authorize(['admin', 'profissional', 'recepcao', 'super_admin']) }

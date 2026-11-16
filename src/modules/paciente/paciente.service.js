@@ -10,6 +10,7 @@ import AvaliacaoNr01Model from '../avaliacao-nr01/avaliacao-nr01.model.js'
 import TermoModel from '../termo/termo.model.js'
 import { AcompanhamentoService } from './acompanhamento.service.js'
 import AppError from '../../errors/AppError.js'
+import { exigirVagaDePaciente } from '../plano/plano.limites.js'
 
 const MAIORIDADE = 18
 
@@ -56,6 +57,7 @@ export const PacienteService = {
     async createPaciente(body, tenantId) {
         const pacienteDTO = createPacienteDTO(body)
         validarPaciente(pacienteDTO)
+        await exigirVagaDePaciente(tenantId)
         try {
             return await PacienteModel.create({ ...pacienteDTO, tenantId })
         } catch (error) {

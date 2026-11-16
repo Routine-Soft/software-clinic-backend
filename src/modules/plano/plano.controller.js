@@ -1,6 +1,15 @@
 import { PlanoService } from './plano.service.js'
 
 export const PlanoController = {
+    async registrarBloqueio(req, reply) {
+        await PlanoService.registrarBloqueio(req.user, req.acesso, req.body)
+        return reply.status(204).send()
+    },
+
+    async resumoDeBloqueios(req, reply) {
+        return reply.send({ data: await PlanoService.resumoDeBloqueios() })
+    },
+
     async publicos(req, reply) {
         const planos = await PlanoService.publicos(req.query?.pais)
         return reply.send({ data: planos })

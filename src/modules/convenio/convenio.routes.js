@@ -1,6 +1,6 @@
 import { ConvenioController } from './convenio.controller.js'
 import { authenticate, authorize } from '../shared/middlewares/auth.middleware.js'
-import { exigirAssinaturaAtiva } from '../shared/middlewares/assinatura.middleware.js'
+import { exigirAssinaturaAtiva, exigirRecurso } from '../shared/middlewares/assinatura.middleware.js'
 
 export async function convenioRoutes(fastify) {
 
@@ -8,6 +8,7 @@ export async function convenioRoutes(fastify) {
 
         fastify.addHook('preHandler', authenticate)
         fastify.addHook('preHandler', exigirAssinaturaAtiva)
+        fastify.addHook('preHandler', exigirRecurso('convenio'))
 
         fastify.get('/convenios', ConvenioController.getAllConvenios)
         fastify.get('/convenios/:id', ConvenioController.getConvenioById)

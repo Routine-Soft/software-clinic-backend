@@ -6,7 +6,8 @@ import { AssinaturaService } from '../assinatura/assinatura.service.js'
 import { GoogleAuth } from './google-auth.js'
 import { IndicacaoService } from '../indicacao/indicacao.service.js'
 import { AgendaService } from '../agenda/agenda.service.js'
-import { exigirPlanoComEquipe } from '../plano/plano.limites.js'
+import { exigirPlanoParaUsuario } from '../plano/plano.limites.js'
+import { prepararClinicaNova, areaValida } from './clinica-nova.js'
 import { paisValido } from '../shared/utils/pais.js'
 import { enviarBoasVindas } from './boas-vindas.email.js'
 import { alertarNovoCadastro } from './novo-cadastro.alerta.js'
@@ -17,7 +18,7 @@ import AppError from '../../errors/AppError.js'
 // `via: 'google'` marca a sessão aberta pelo Google: ela pode trocar a senha sem informar a atual,
 // e é assim que quem esqueceu a senha recupera o acesso.
 // Versão dos Termos de uso da clínica aceita no cadastro (muda quando o texto mudar).
-const TERMOS_CLINICA_VERSAO = '2026-10-11'
+const TERMOS_CLINICA_VERSAO = '2026-11-15'
 
 async function emitirSessao(user, via = 'senha') {
     const payload = { id: user._id, tenantId: user.tenantId, role: user.role, via }
@@ -28,11 +29,11 @@ async function emitirSessao(user, via = 'senha') {
     return { accessToken, refreshToken, user: await comPaisDaClinica(user) }
 }
 
-// O país fica só no dono da clínica; recepção e profissionais recebem o dele em `paisClinica`
-// (o site esconde o que só existe no Brasil, como NR-01 e "Indique e ganhe").
+// O país e a área ficam só no dono da clínica; recepção e profissionais recebem os dele em `paisClinica` e `areaClinica`
+// (o site esconde o que só existe no Brasil, como NR-01 e "Indique e ganhe", e as avaliações fora das áreas que as usam).
 async function comPaisDaClinica(user) {
-    const dono = String(user.tenantId) === String(user._id) ? user : await UserModel.findById(user.tenantId, 'pais').lean()
-    return { ...user.toJSON(), paisClinica: dono?.pais ?? 'BR' }
+    const dono = String(user.tenantId) === String(user._id) ? user : await UserModel.findById(user.tenantId, 'pais area').lean()
+    return { ...user.toJSON(), paisClinica: dono?.pais ?? 'BR', areaClinica: dono?.area ?? null }
 }
 
 export const UserService = {
@@ -73,10 +74,10 @@ export const UserService = {
     },
 
     async createUsuarioDaClinica(tenantId, body) {
-        await exigirPlanoComEquipe(tenantId)
         const userDTO = createUserDTO(body)
-        userDTO.password = await argon2.hash(userDTO.password)
         userDTO.role = ['profissional', 'recepcao'].includes(body.role) ? body.role : 'recepcao'
+        await exigirPlanoParaUsuario(tenantId, userDTO.role)
+        userDTO.password = await argon2.hash(userDTO.password)
 
         if (!userDTO.nomeEmpresa) {
             const criador = await UserModel.findById(tenantId)
@@ -97,6 +98,7 @@ export const UserService = {
         await this.exigirPodeAlterarUsuario(tenantId, id, papelDeQuemAltera)
         const userDTO = updateUserDTO(body)
         if (['profissional', 'recepcao'].includes(body.role)) {
+            if (body.role === 'recepcao') await exigirPlanoParaUsuario(tenantId, 'recepcao')
             userDTO.role = body.role
         }
 
@@ -231,6 +233,7 @@ export const UserService = {
 
         if (isNovaClinica) {
             await AssinaturaService.criarAssinaturaTrial(newId)
+            await prepararClinicaNova(user, idioma)
             await IndicacaoService.registrar(indicador, newId)
             enviarBoasVindas(user, idioma)
             alertarNovoCadastro(user, { via: 'senha', idioma, codigoIndicacao: body.codigoIndicacao })
@@ -321,6 +324,7 @@ export const UserService = {
                 nomeEmpresa,
                 cnpj: String(cadastro.cnpj ?? '').trim() || null,
                 pais: paisValido(cadastro.pais) ?? 'BR',
+                area: areaValida(cadastro.area),
                 termosAceitosEm: new Date(),
                 termosVersao: `clinica-${TERMOS_CLINICA_VERSAO}`,
             })
@@ -331,6 +335,7 @@ export const UserService = {
             throw error
         }
         await AssinaturaService.criarAssinaturaTrial(newId)
+        await prepararClinicaNova(novo, idioma)
         await IndicacaoService.registrar(indicador, newId)
         enviarBoasVindas(novo, idioma)
         alertarNovoCadastro(novo, { via: 'google', idioma, codigoIndicacao: cadastro.codigoIndicacao })

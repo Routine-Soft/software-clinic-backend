@@ -26,6 +26,8 @@ const assinaturaSchema = new mongoose.Schema({
     inadimplenteDesde: { type: Date, default: null },
     // Quando saiu o último e-mail avisando do vencimento (cada fatura recebe um só; ver assinatura.emails.js).
     avisoVencimentoEm: { type: Date, default: null },
+    // E-mails de ajuda do período de teste que já saíram ('dia1', 'dia3', 'fim'; ver teste.emails.js).
+    emailsDoTeste: { type: [String], default: [] },
 
     // Bloqueio manual do suporte, independente do status. Enquanto true, o acesso fica bloqueado mesmo que a
     // assinatura esteja ativa ou em teste. Guarda-chuva para casos que a máquina de estados normal não cobre.

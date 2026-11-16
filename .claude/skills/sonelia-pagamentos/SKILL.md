@@ -10,10 +10,13 @@ Arquivos: `src/modules/assinatura/` (`assinatura.service.js` Mercado Pago, `assi
 **Nunca faça cobrança real em teste.** Não clique em botões/interruptores da tela de planos do super admin durante testes (um teste já desativou o Pro).
 
 ## Planos
-- **Teste grátis:** plano interno (`tipo: 'gratis'`, nome "Teste grátis"), 7 dias com tudo liberado, sem cartão. Não aparece na lista de planos.
-- **Individual:** R$ 100/mês. Só o dono usa o sistema (sem recepção nem outros profissionais; `plano.limites.js` barra).
-- **Pro:** R$ 200/mês, sem limites.
-- **Em dólar** (clínicas de fora do Brasil): planos separados com `moeda: 'USD'`: Individual US$ 50 e Pro US$ 200 (não são conversão dos preços em reais). Planos antigos sem `moeda` contam como BRL (consultas usam `moeda: { $ne: 'USD' }`).
+- **Freemium (2026-11):** três níveis calculados em `acessoDaClinica` (`assinatura.service.js`) com as regras de `plano.limites.js`, carregados em `req.acesso` pelo `exigirAssinaturaAtiva`. Sem plano pago valendo a clínica **não fica bloqueada**: cai no **Grátis** (agenda, até 10 pacientes, 1 profissional, TV com "Feito com Sonelia"). Só o acesso revogado pelo suporte dá 402 `ASSINATURA_INATIVA`.
+  - Rotas de recurso pago usam `exigirRecurso('<recurso>')`: barra só criar/editar (a leitura do que já foi salvo continua) com 402 `RECURSO_DO_PLANO` + `recurso`; o site abre a janela de assinar (`PlanoProvider`, `RecursoBloqueadoModal`) e o menu mostra cadeado. Cliques nos cadeados vão para `planos_bloqueios` (cartão no Painel Super Admin).
+- **Teste grátis:** plano interno (`tipo: 'gratis'`, nome "Teste grátis"), 14 dias com tudo liberado (nível Pro), sem cartão; depois vira o plano Grátis. E-mails de ajuda no dia 1, dia 3 e na véspera do fim (`teste.emails.js`). Não aparece na lista de planos.
+- **Basic** (campo `individual: true` no plano; antes se chamava "Individual"): R$ 99/mês. Até 5 profissionais, sem recepção e sem repasses.
+- **Pro:** R$ 200/mês, sem limites. (Limite de profissionais no Pro e plano anual: o Stanley decide depois; NR-01 continua incluída, não é extra pago.)
+- **Em dólar** (clínicas de fora do Brasil): planos separados com `moeda: 'USD'`: Basic US$ 50 e Pro US$ 200 (não são conversão dos preços em reais). Planos antigos sem `moeda` contam como BRL (consultas usam `moeda: { $ne: 'USD' }`).
+- Nome, preço e recursos dos planos ficam no banco: `scripts/planosBasicEGratis.js` (rodar no servidor; sem `--aplicar` só mostra).
 - Descrição e recursos (`descricao`, `recursos`) são editados pelo super admin; a landing lê `/api/planos/publicos?pais=XX` e destaca o que é só de um plano ("Só no Pro").
 
 ## Brasil: Mercado Pago (`pais` do dono = 'BR', o padrão)

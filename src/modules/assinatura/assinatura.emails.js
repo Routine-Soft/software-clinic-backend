@@ -8,17 +8,17 @@ const DIAS_DE_ANTECEDENCIA = 3
 // Uma fatura recebe um aviso só, mesmo que a data dela seja ajustada depois (o cartão pode mudar a hora da cobrança).
 const DIAS_ENTRE_AVISOS = 20
 const DIA_EM_MS = 24 * 60 * 60 * 1000
-const FUSO = 'America/Sao_Paulo'
+export const FUSO = 'America/Sao_Paulo'
 
 const PAISES_DE_LINGUA_ESPANHOLA = ['AR', 'BO', 'CL', 'CO', 'CR', 'CU', 'DO', 'EC', 'ES', 'GQ', 'GT', 'HN', 'MX', 'NI', 'PA', 'PE', 'PR', 'PY', 'SV', 'UY', 'VE']
 
 // O dono não guarda o idioma da tela: o país dele decide o idioma do e-mail.
-function idiomaDoPais(pais) {
+export function idiomaDoPais(pais) {
     if (ehBrasil(pais)) return 'pt'
     return PAISES_DE_LINGUA_ESPANHOLA.includes(paisValido(pais)) ? 'es' : 'en'
 }
 
-const TEXTOS = {
+export const TEXTOS = {
     pt: {
         lang: 'pt-BR',
         locale: 'pt-BR',
@@ -76,9 +76,9 @@ const TEXTOS = {
 }
 
 // Frontend usa HashRouter: a rota fica depois do "#".
-function urlDasAssinaturas() {
+export function urlDoSistema(rota = '/assinaturas') {
     const base = (process.env.APP_URL || 'http://127.0.0.1:5173').replace(/\/+$/, '')
-    return `${base}/#/assinaturas`
+    return `${base}/#${rota}`
 }
 
 function escaparHtml(texto) {
@@ -93,11 +93,11 @@ function diaEmBrasilia(instante) {
     return Date.parse(new Date(instante).toLocaleDateString('en-CA', { timeZone: FUSO }))
 }
 
-function montarEmail(T, nome, titulo, corpo) {
+// `botao` e `url`: o botão do e-mail (sem eles, abre a tela de assinatura).
+export function montarEmail(T, nome, titulo, corpo, { botao = T.botao, url = urlDoSistema() } = {}) {
     const primeiroNome = (nome || '').trim().split(/\s+/)[0]
     const saudacao = primeiroNome ? `${T.ola}, ${primeiroNome}!` : `${T.ola}!`
-    const url = urlDasAssinaturas()
-    const texto = `${saudacao}\n\n${corpo}\n\n${T.botao}: ${url}\n\n${T.assinatura}`
+    const texto = `${saudacao}\n\n${corpo}\n\n${botao}: ${url}\n\n${T.assinatura}`
     const html = `<!doctype html>
 <html lang="${T.lang}"><body style="margin:0;padding:24px;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif;color:#1f2937">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px">
@@ -106,7 +106,7 @@ function montarEmail(T, nome, titulo, corpo) {
       <h1 style="font-size:20px;margin:20px 0 8px">${titulo}</h1>
       <p style="font-size:15px;line-height:1.6;margin:0 0 8px">${escaparHtml(saudacao)}</p>
       <p style="font-size:15px;line-height:1.6;margin:0 0 20px">${corpo}</p>
-      <p style="margin:0 0 24px"><a href="${url}" style="display:inline-block;padding:12px 24px;border-radius:10px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:bold">${T.botao}</a></p>
+      <p style="margin:0 0 24px"><a href="${url}" style="display:inline-block;padding:12px 24px;border-radius:10px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:bold">${botao}</a></p>
       <p style="font-size:14px;line-height:1.6;color:#6b7280;margin:0">${T.assinatura}</p>
     </td></tr>
   </table>

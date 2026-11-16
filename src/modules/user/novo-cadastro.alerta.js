@@ -12,6 +12,7 @@ export function alertarNovoCadastro(user, { via, idioma, codigoIndicacao }) {
         `Clínica: ${user.nomeEmpresa || '-'}`,
         `CNPJ/CPF: ${user.cnpj || '-'}`,
         `País: ${user.pais || 'BR'}`,
+        `Área: ${user.area || '-'}`,
         `Idioma do site: ${idioma}`,
         `Cadastro por: ${via === 'google' ? 'Google' : 'e-mail e senha'}`,
         `Código de indicação: ${codigoIndicacao || '-'}`,

@@ -1,6 +1,6 @@
 import { ReuniaoController } from './reuniao.controller.js'
 import { authenticate, authorize } from '../shared/middlewares/auth.middleware.js'
-import { exigirAssinaturaAtiva } from '../shared/middlewares/assinatura.middleware.js'
+import { exigirAssinaturaAtiva, exigirRecurso } from '../shared/middlewares/assinatura.middleware.js'
 
 export async function reuniaoRoutes(fastify) {
 
@@ -8,6 +8,7 @@ export async function reuniaoRoutes(fastify) {
 
         fastify.addHook('preHandler', authenticate)
         fastify.addHook('preHandler', exigirAssinaturaAtiva)
+        fastify.addHook('preHandler', exigirRecurso('reunioes'))
         // Agenda de reuniões da dona: profissionais não veem.
         fastify.addHook('preHandler', authorize(['admin', 'recepcao', 'super_admin']))
 

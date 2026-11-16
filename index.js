@@ -61,7 +61,8 @@ fastify.setErrorHandler((error, request, reply) => {
   return reply.status(error.statusCode || 500).send({
     success: false,
     message: error.message || 'Erro interno do servidor',
-    ...(error.codigo ? { code: error.codigo } : {})
+    ...(error.codigo ? { code: error.codigo } : {}),
+    ...(error.dados ?? {})
   })
 })
 
