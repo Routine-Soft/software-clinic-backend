@@ -410,6 +410,7 @@ export const MENSAGENS_ES = {
     'Este número não tem WhatsApp': 'Este número no tiene WhatsApp',
     'WhatsApp recusou o envio: {0}': 'WhatsApp rechazó el envío: {0}',
     'Os lembretes pelo WhatsApp são um recurso dos planos pagos.': 'Los recordatorios por WhatsApp son una función de los planes pagos.',
+    'Não foi possível desconectar o WhatsApp: {0}. Tente de novo.': 'No fue posible desconectar WhatsApp: {0}. Inténtalo de nuevo.',
     'WhatsApp desconectado': 'WhatsApp desconectado',
     'Lembretes atualizados': 'Recordatorios actualizados',
     'Mensagem de teste enviada': 'Mensaje de prueba enviado',

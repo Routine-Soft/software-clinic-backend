@@ -3,6 +3,8 @@
 // Sem EVOLUTION_API_URL e EVOLUTION_API_KEY (como no computador local), o WhatsApp fica desligado.
 import AppError from '../../errors/AppError.js'
 
+const pausa = (ms) => new Promise((resolver) => setTimeout(resolver, ms))
+
 export function evolutionConfigurada() {
     return !!(process.env.EVOLUTION_API_URL && process.env.EVOLUTION_API_KEY)
 }
@@ -81,10 +83,28 @@ export const Evolution = {
         }
     },
 
-    // Desconecta o celular e apaga a conexão (para conectar de novo, outro QR Code).
+    // Desconecta o celular e apaga a conexão (para conectar de novo, outro QR Code). A saída (logout) e o apagar
+    // terminam alguns segundos depois da resposta: espera cada etapa acabar e avisa se não der certo.
     async apagar(instancia) {
-        await chamar('DELETE', `/instance/logout/${encodeURIComponent(instancia)}`).catch(() => null)
-        await chamar('DELETE', `/instance/delete/${encodeURIComponent(instancia)}`).catch(() => null)
+        const caminho = (acao) => `/instance/${acao}/${encodeURIComponent(instancia)}`
+        const esperar = async (pronto) => {
+            for (let i = 0; i < 15; i++) {
+                if (pronto(await this.estado(instancia))) return true
+                await pausa(1000)
+            }
+            return false
+        }
+
+        const inicial = await this.estado(instancia)
+        if (inicial === null) return
+        if (inicial === 'open') {
+            await chamar('DELETE', caminho('logout'))
+            await esperar((estado) => estado !== 'open')
+        }
+        const { ok, dados } = await chamar('DELETE', caminho('delete'))
+        if (!ok || !(await esperar((estado) => estado === null))) {
+            throw new AppError(`Não foi possível desconectar o WhatsApp: ${mensagemDeErro(dados)}. Tente de novo.`, 502)
+        }
     },
 
     // Envia um texto. Devolve o id da mensagem; erro quando o número não tem WhatsApp ou a conexão caiu.
