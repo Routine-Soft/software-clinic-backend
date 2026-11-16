@@ -26,6 +26,12 @@ const assinaturaSchema = new mongoose.Schema({
     inadimplenteDesde: { type: Date, default: null },
     // Quando saiu o último e-mail avisando do vencimento (cada fatura recebe um só; ver assinatura.emails.js).
     avisoVencimentoEm: { type: Date, default: null },
+    // Preço que a clínica continua pagando depois de um aumento do plano (quem já assinava não paga o preço novo).
+    // Vale só para o plano gravado aqui; trocar de plano cobra o preço do plano novo. Ver precoDaAssinatura.
+    precoTravado: {
+        type: new mongoose.Schema({ planoId: mongoose.Schema.Types.ObjectId, valor: Number }, { _id: false }),
+        default: null,
+    },
     // E-mails de ajuda do período de teste que já saíram ('dia1', 'dia3', 'fim'; ver teste.emails.js).
     emailsDoTeste: { type: [String], default: [] },
 

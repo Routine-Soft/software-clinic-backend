@@ -4,6 +4,7 @@ import AppError from '../../errors/AppError.js'
 import { sincronizarPlanoNoStripe } from './plano.stripe.js'
 import { moedaDoPais } from '../shared/utils/pais.js'
 import BloqueioModel from './bloqueio.model.js'
+import AssinaturaModel from '../assinatura/assinatura.model.js'
 import { RECURSOS } from './plano.limites.js'
 
 const RECURSOS_DOS_CLIQUES = [...RECURSOS, 'pacientes', 'profissionais']
@@ -42,7 +43,7 @@ export const PlanoService = {
     async publicos(pais) {
         // Planos antigos não têm "moeda" gravada: valem como reais.
         const moeda = moedaDoPais(pais) === 'USD' ? 'USD' : { $ne: 'USD' }
-        return await PlanoModel.find({ tipo: 'pago', ativo: true, moeda }, 'nome preco moeda descricao recursos individual').sort({ preco: 1 })
+        return await PlanoModel.find({ tipo: 'pago', ativo: true, moeda }, 'nome preco moeda descricao nivel').sort({ preco: 1 })
     },
 
     async findById(id) {
@@ -61,6 +62,17 @@ export const PlanoService = {
 
     async updatePlano(id, body) {
         const planoDTO = updatePlanoDTO(body)
+        const anterior = await PlanoModel.findById(id, 'preco')
+        if (!anterior) {
+            throw new AppError('Plano não encontrado', 404)
+        }
+        // Aumento de preço não vale para quem já assina este plano: essas clínicas ficam com o preço antigo.
+        if (planoDTO.preco != null && Number(planoDTO.preco) > anterior.preco) {
+            await AssinaturaModel.updateMany(
+                { planoId: anterior._id, status: { $in: ['ativa', 'inadimplente', 'cancelada', 'pendente'] }, precoTravado: null },
+                { $set: { precoTravado: { planoId: anterior._id, valor: anterior.preco } } },
+            )
+        }
         const plano = await PlanoModel.findByIdAndUpdate(id, { $set: planoDTO }, { new: true, runValidators: true })
         if (!plano) {
             throw new AppError('Plano não encontrado', 404)

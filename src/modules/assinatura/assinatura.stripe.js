@@ -5,7 +5,7 @@ import PlanoModel from '../plano/plano.model.js'
 import UserModel from '../user/user.model.js'
 import { getStripe, stripeConfigurado } from '../../config/stripe.js'
 import { ehBrasil } from '../shared/utils/pais.js'
-import { exigirCabeNoIndividual } from '../plano/plano.limites.js'
+import { exigirCabeNoPlano } from '../plano/plano.limites.js'
 import AppError from '../../errors/AppError.js'
 import { enviarPagamentoRecebido } from './assinatura.emails.js'
 
@@ -134,7 +134,7 @@ export const StripeService = {
         const plano = mongoose.isValidObjectId(planoId) ? await PlanoModel.findOne({ _id: planoId, tipo: 'pago', ativo: true, moeda: 'USD' }) : null
         if (!plano) throw new AppError('Plano não encontrado ou indisponível para assinatura', 404)
         if (!plano.stripePriceId) throw new AppError('Este plano ainda não está disponível no cartão internacional.', 400)
-        if (plano.individual) await exigirCabeNoIndividual(tenantId, plano)
+        await exigirCabeNoPlano(tenantId, plano)
 
         const stripe = getStripe()
         try {

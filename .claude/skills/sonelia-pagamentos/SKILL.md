@@ -13,11 +13,15 @@ Arquivos: `src/modules/assinatura/` (`assinatura.service.js` Mercado Pago, `assi
 - **Freemium (2026-11):** três níveis calculados em `acessoDaClinica` (`assinatura.service.js`) com as regras de `plano.limites.js`, carregados em `req.acesso` pelo `exigirAssinaturaAtiva`. Sem plano pago valendo a clínica **não fica bloqueada**: cai no **Grátis** (agenda, até 10 pacientes, 1 profissional, TV com "Feito com Sonelia"). Só o acesso revogado pelo suporte dá 402 `ASSINATURA_INATIVA`.
   - Rotas de recurso pago usam `exigirRecurso('<recurso>')`: barra só criar/editar (a leitura do que já foi salvo continua) com 402 `RECURSO_DO_PLANO` + `recurso`; o site abre a janela de assinar (`PlanoProvider`, `RecursoBloqueadoModal`) e o menu mostra cadeado. Cliques nos cadeados vão para `planos_bloqueios` (cartão no Painel Super Admin).
 - **Teste grátis:** plano interno (`tipo: 'gratis'`, nome "Teste grátis"), 14 dias com tudo liberado (nível Pro), sem cartão; depois vira o plano Grátis. E-mails de ajuda no dia 1, dia 3 e na véspera do fim (`teste.emails.js`). Não aparece na lista de planos.
-- **Basic** (campo `individual: true` no plano; antes se chamava "Individual"): R$ 99/mês. Até 5 profissionais, sem recepção e sem repasses.
-- **Pro:** R$ 200/mês, sem limites. (Limite de profissionais no Pro e plano anual: o Stanley decide depois; NR-01 continua incluída, não é extra pago.)
+- O nível de cada plano pago fica em `plano.nivel` (`basic`, `pro`, `rede`; trocou o antigo `individual` em 2026-11).
+- **Basic** (antes "Individual"): R$ 129/mês. Até 2 profissionais e 100 pacientes, sem recepção e sem repasses.
+- **Pro:** R$ 249/mês, até 25 profissionais e pacientes sem limite.
+- **Rede:** R$ 690/mês, até 100 profissionais, com implantação assistida e suporte prioritário (só em reais).
+- **Preço travado:** quando o preço de um plano sobe (`updatePlano`), quem já assina fica com o valor antigo em `assinatura.precoTravado` ({ planoId, valor }); `precoDaAssinatura` usa esse valor no Pix e no cartão do Mercado Pago. Trocar de plano cobra o preço do plano novo. A CurArt ficou travada em R$ 200 no Pro.
+- Lembretes de consulta pelo WhatsApp entram no Basic, no Pro e no Rede ("Em breve" na página de preços até ficarem prontos). (Plano anual: o Stanley decide depois; NR-01 continua incluída, não é extra pago.)
+- Limites em `LIMITES_DO_NIVEL` (`plano.limites.js`); os mesmos números ficam na página de preços (`precos.comparacao` em `landing.textos.js`), que é a lista fixa do que cada plano tem (o plano no banco só guarda nome, preço e descrição).
 - **Em dólar** (clínicas de fora do Brasil): planos separados com `moeda: 'USD'`: Basic US$ 50 e Pro US$ 200 (não são conversão dos preços em reais). Planos antigos sem `moeda` contam como BRL (consultas usam `moeda: { $ne: 'USD' }`).
-- Nome, preço e recursos dos planos ficam no banco: `scripts/planosBasicEGratis.js` (rodar no servidor; sem `--aplicar` só mostra).
-- Descrição e recursos (`descricao`, `recursos`) são editados pelo super admin; a landing lê `/api/planos/publicos?pais=XX` e destaca o que é só de um plano ("Só no Pro").
+- Nome, preço e descrição são editados pelo super admin; a landing lê `/api/planos/publicos?pais=XX`.
 
 ## Brasil: Mercado Pago (`pais` do dono = 'BR', o padrão)
 - Cartão: assinatura recorrente (PreApproval). Pix: pagamento avulso que dá **30 dias** de acesso (`PIX_DIAS_DE_ACESSO`), sem renovar sozinho; dá para passar para o cartão depois.

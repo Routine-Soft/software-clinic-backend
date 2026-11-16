@@ -9,7 +9,7 @@ import PlanoModel from '../plano/plano.model.js'
 import UserModel from '../user/user.model.js'
 import AppError from '../../errors/AppError.js'
 import { IndicacaoService } from '../indicacao/indicacao.service.js'
-import { exigirCabeNoIndividual, acessoDoNivel } from '../plano/plano.limites.js'
+import { exigirCabeNoPlano, acessoDoNivel } from '../plano/plano.limites.js'
 import { StripeService } from './assinatura.stripe.js'
 import { ehBrasil } from '../shared/utils/pais.js'
 import { enviarPagamentoRecebido } from './assinatura.emails.js'
@@ -200,7 +200,7 @@ export function avaliarAcesso(assinatura, agora = new Date()) {
 // O que a clínica pode usar agora (ver plano.limites.js). Só fica bloqueada de vez com o acesso revogado pelo suporte
 // (ou sem assinatura); sem plano pago valendo, cai no plano Grátis em vez de perder o sistema.
 //  - teste e pagamento aguardando confirmação no teste: tudo liberado (nível "pro");
-//  - plano pago valendo: "basic" (plano com `individual`) ou "pro";
+//  - plano pago valendo: o nível do plano ("basic", "pro" ou "rede");
 //  - o resto (teste acabou, pagamento vencido, cancelada): "gratis".
 export function acessoDaClinica(assinatura, agora = new Date()) {
     const avaliacao = avaliarAcesso(assinatura, agora)
@@ -210,7 +210,7 @@ export function acessoDaClinica(assinatura, agora = new Date()) {
     let nivel = 'gratis'
     if (avaliacao.liberado) {
         const emTeste = ['trial', 'pendente'].includes(assinatura.status)
-        nivel = !emTeste && assinatura.planoId?.individual === true ? 'basic' : 'pro'
+        nivel = emTeste ? 'pro' : assinatura.planoId?.nivel ?? 'pro'
     }
     return { ...avaliacao, bloqueado: false, ...acessoDoNivel(nivel) }
 }
@@ -273,6 +273,14 @@ export function aplicarCartaoAgendado(assinatura, preapproval) {
     return assinatura
 }
 
+// Mensalidade da clínica neste plano: o preço travado de quem já assinava antes de um aumento (nunca mais que o
+// preço atual), ou o preço do plano. Trocar de plano cobra o preço do plano novo.
+export function precoDaAssinatura(assinatura, plano) {
+    const travado = assinatura?.precoTravado
+    if (travado?.valor != null && String(travado.planoId) === String(plano._id)) return Math.min(travado.valor, plano.preco)
+    return plano.preco
+}
+
 // Corpo da assinatura recorrente no Mercado Pago. inicio: primeira cobrança numa data futura (troca do Pix para o cartão).
 export function corpoDaAssinaturaNoCartao({ assinatura, plano, emailPagador, inicio = null }) {
     const body = {
@@ -284,7 +292,7 @@ export function corpoDaAssinaturaNoCartao({ assinatura, plano, emailPagador, ini
         auto_recurring: {
             frequency: 1,
             frequency_type: 'months',
-            transaction_amount: plano.preco,
+            transaction_amount: precoDaAssinatura(assinatura, plano),
             currency_id: 'BRL',
             ...(inicio ? { start_date: new Date(inicio).toISOString() } : {}),
         },
@@ -356,7 +364,7 @@ export const AssinaturaService = {
     },
 
     async verificarAcesso(tenantId) {
-        const assinatura = await AssinaturaModel.findOne({ tenantId }).sort({ createdAt: -1 }).populate('planoId', 'individual')
+        const assinatura = await AssinaturaModel.findOne({ tenantId }).sort({ createdAt: -1 }).populate('planoId', 'nivel')
         return acessoDaClinica(assinatura)
     },
 
@@ -403,7 +411,7 @@ export const AssinaturaService = {
         }
         const plano = await this.buscarPlanoPago(assinatura, planoId)
         if (plano.moeda === 'USD') throw new AppError('Plano não encontrado ou indisponível para assinatura', 404)
-        if (plano.individual) await exigirCabeNoIndividual(assinatura.tenantId, plano)
+        await exigirCabeNoPlano(assinatura.tenantId, plano)
         return plano
     },
 
@@ -563,8 +571,9 @@ export const AssinaturaService = {
         }
 
         // Descontos de indicação guardados (somados): o Pix já sai com o valor menor. Só são gastos quando este Pix for pago.
-        const { indicacoes: creditos, total: desconto } = await IndicacaoService.descontosDisponiveis(tenantId, plano.preco)
-        const valor = plano.preco - desconto
+        const mensalidade = precoDaAssinatura(assinatura, plano)
+        const { indicacoes: creditos, total: desconto } = await IndicacaoService.descontosDisponiveis(tenantId, mensalidade)
+        const valor = mensalidade - desconto
 
         // O crédito cobre a mensalidade inteira: não há Pix a pagar, o período é liberado na hora.
         if (valor <= 0) {

@@ -11,11 +11,11 @@ const planoSchema = new mongoose.Schema({
     stripePriceId: { type: String, default: null },
     duracaoDiasTrial: { type: Number, default: null },
     ativo: { type: Boolean, default: true },
-    // Plano para quem atende sozinho: só o dono da conta usa o sistema (um profissional, sem recepção nem equipe).
-    individual: { type: Boolean, default: false },
-    // Texto do plano na landing e na tela de assinaturas: uma frase curta e a lista do que ele inclui.
+    // Nível do plano pago (ver plano.limites.js): basic (antes "Individual"), pro ou rede. Decide limites e recursos.
+    nivel: { type: String, enum: ['basic', 'pro', 'rede'], default: 'pro' },
+    // Frase curta do plano na landing e na tela de assinaturas. O que cada plano tem fica fixo no site
+    // (`precos.comparacao` em landing.textos.js), para os planos ficarem alinhados lado a lado.
     descricao: { type: String, default: '', trim: true },
-    recursos: { type: [String], default: [] },
 
 }, { timestamps: true });
 
