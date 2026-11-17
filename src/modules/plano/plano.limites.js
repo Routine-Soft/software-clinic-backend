@@ -1,13 +1,12 @@
 import PlanoModel from './plano.model.js'
-import UserModel from '../user/user.model.js'
 import ProfissionalModel from '../profissional/profissional.model.js'
 import PacienteModel from '../paciente/paciente.model.js'
 import AppError from '../../errors/AppError.js'
 
 // Níveis de acesso da clínica (o nível do plano pago está em `plano.nivel`):
 //  - rede: plano Rede: tudo liberado, até 100 profissionais e pacientes sem limite;
-//  - pro: plano Pro e o período de teste: tudo liberado, até 25 profissionais e pacientes sem limite;
-//  - basic: plano Basic: até 2 profissionais e pacientes sem limite, sem recepção e sem repasses;
+//  - pro: plano Pro e o período de teste: tudo liberado, até 20 profissionais e pacientes sem limite;
+//  - basic: plano Basic: até 2 profissionais, pacientes sem limite e recepção com login próprio, sem repasses;
 //  - gratis: sem plano pago valendo (teste acabou, pagamento venceu): agenda, até 20 pacientes, 1 profissional,
 //    avaliações (neuro e NR-01) e até 10 lembretes pelo WhatsApp por mês.
 // O que não está em RECURSOS é livre em qualquer nível: agenda, pacientes, lista de espera, sala de espera, cadastros.
@@ -16,7 +15,7 @@ export const RECURSOS = ['prontuario', 'anamnese', 'termo', 'convenio', 'avaliac
 
 const RECURSOS_DO_NIVEL = {
     gratis: ['avaliacoes', 'whatsapp'],
-    basic: RECURSOS.filter((r) => !['repasse', 'recepcao'].includes(r)),
+    basic: RECURSOS.filter((r) => r !== 'repasse'),
     pro: RECURSOS,
     rede: RECURSOS,
 }
@@ -26,7 +25,7 @@ const RECURSOS_DO_NIVEL = {
 const LIMITES_DO_NIVEL = {
     gratis: { pacientes: 20, profissionais: 1, lembretesMes: 10 },
     basic: { pacientes: null, profissionais: 2, lembretesMes: null },
-    pro: { pacientes: null, profissionais: 25, lembretesMes: null },
+    pro: { pacientes: null, profissionais: 20, lembretesMes: null },
     rede: { pacientes: null, profissionais: 100, lembretesMes: null },
 }
 
@@ -53,19 +52,13 @@ async function nomeDoPlano(nivel) {
 
 const nomeDoPlanoPro = () => nomeDoPlano('pro')
 
-// Antes de cadastrar um usuário da clínica (recepção ou profissional) ou mudar o papel de um.
-export async function exigirPlanoParaUsuario(tenantId, role) {
-    const nivel = await nivelDaClinica(tenantId)
-    if (['pro', 'rede'].includes(nivel)) return
-    if (nivel === 'gratis') {
-        throw erroDeRecurso('No plano Grátis, só você usa o sistema. Assine um plano para cadastrar a sua equipe.', 'recepcao')
-    }
-    if (role === 'recepcao') {
-        throw erroDeRecurso(`A recepção não faz parte do plano Basic. Para cadastrá-la, mude para ${await nomeDoPlanoPro()}.`, 'recepcao')
-    }
+// Antes de cadastrar um usuário da clínica (recepção ou profissional) ou mudar o papel de um: só o Grátis não tem equipe.
+export async function exigirPlanoParaUsuario(tenantId) {
+    if (await nivelDaClinica(tenantId) !== 'gratis') return
+    throw erroDeRecurso('No plano Grátis, só você usa o sistema. Assine um plano para cadastrar a sua equipe.', 'recepcao')
 }
 
-// Antes de cadastrar outro profissional: Grátis tem 1, Basic até 2, Pro até 25 e Rede até 100.
+// Antes de cadastrar outro profissional: Grátis tem 1, Basic até 2, Pro até 20 e Rede até 100.
 export async function exigirVagaDeProfissional(tenantId) {
     const { limites, nivel } = acessoDoNivel(await nivelDaClinica(tenantId))
     if (limites.profissionais === null) return
@@ -92,28 +85,13 @@ export async function exigirVagaDePaciente(tenantId) {
     throw erroDeRecurso(`O plano Grátis tem até ${limites.pacientes} pacientes. Assine um plano para cadastrar mais.`, 'pacientes')
 }
 
-// Antes de assinar um plano: a clínica não pode passar dos limites dele. O Basic também não tem recepção.
+// Antes de assinar um plano: a clínica não pode ter mais profissionais do que o plano permite.
+const NIVEL_ACIMA = { basic: 'pro', pro: 'rede' }
+
 export async function exigirCabeNoPlano(tenantId, plano) {
-    if (plano.nivel === 'pro') {
-        const maximoPro = LIMITES_DO_NIVEL.pro.profissionais
-        const total = await ProfissionalModel.countDocuments({ tenantId })
-        if (total > maximoPro) {
-            throw new AppError(`A clínica tem ${total} profissionais e o plano ${plano.nome} vai até ${maximoPro}. Escolha ${await nomeDoPlano('rede')}.`, 409)
-        }
-        return
-    }
-    if (plano.nivel !== 'basic') return
-
-    const maximo = LIMITES_DO_NIVEL.basic.profissionais
-    const [recepcao, profissionais] = await Promise.all([
-        UserModel.countDocuments({ tenantId, role: 'recepcao' }),
-        ProfissionalModel.countDocuments({ tenantId }),
-    ])
-    if (recepcao === 0 && profissionais <= maximo) return
-
-    const falta = [
-        recepcao > 0 && `remova os usuários da recepção (${recepcao})`,
-        profissionais > maximo && `deixe no máximo ${maximo} profissionais (hoje são ${profissionais})`,
-    ].filter(Boolean).join(' e ')
-    throw new AppError(`O plano ${plano.nome} não tem recepção e vai até ${maximo} profissionais. Para assiná-lo, ${falta}, ou escolha ${await nomeDoPlanoPro()}.`, 409)
+    const maximo = LIMITES_DO_NIVEL[plano.nivel]?.profissionais
+    if (!maximo || !NIVEL_ACIMA[plano.nivel]) return
+    const total = await ProfissionalModel.countDocuments({ tenantId })
+    if (total <= maximo) return
+    throw new AppError(`A clínica tem ${total} profissionais e o plano ${plano.nome} vai até ${maximo}. Escolha ${await nomeDoPlano(NIVEL_ACIMA[plano.nivel])}.`, 409)
 }

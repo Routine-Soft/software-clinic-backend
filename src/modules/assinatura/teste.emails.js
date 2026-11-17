@@ -29,7 +29,7 @@ const ETAPAS = {
         fim: {
             assunto: 'Seu teste da Sonelia termina amanhã',
             titulo: 'Seu teste termina amanhã',
-            texto: 'Depois do teste, sua clínica continua no plano Grátis, com a agenda e até 20 pacientes. Prontuário, anamnese, TCLE, convênios e a equipe ficam nos planos pagos, a partir de R$ 129 por mês. Nada do que você já registrou é perdido.',
+            texto: 'Depois do teste, sua clínica continua no plano Grátis, com a agenda e até 20 pacientes. Prontuário, anamnese, TCLE, convênios e a equipe ficam nos planos pagos, a partir de R$ 99 por mês. Nada do que você já registrou é perdido.',
             botao: 'Ver os planos',
             rota: '/assinaturas',
         },

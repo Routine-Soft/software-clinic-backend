@@ -76,7 +76,7 @@ export const UserService = {
     async createUsuarioDaClinica(tenantId, body) {
         const userDTO = createUserDTO(body)
         userDTO.role = ['profissional', 'recepcao'].includes(body.role) ? body.role : 'recepcao'
-        await exigirPlanoParaUsuario(tenantId, userDTO.role)
+        await exigirPlanoParaUsuario(tenantId)
         userDTO.password = await argon2.hash(userDTO.password)
 
         if (!userDTO.nomeEmpresa) {
@@ -98,7 +98,7 @@ export const UserService = {
         await this.exigirPodeAlterarUsuario(tenantId, id, papelDeQuemAltera)
         const userDTO = updateUserDTO(body)
         if (['profissional', 'recepcao'].includes(body.role)) {
-            if (body.role === 'recepcao') await exigirPlanoParaUsuario(tenantId, 'recepcao')
+            if (body.role === 'recepcao') await exigirPlanoParaUsuario(tenantId)
             userDTO.role = body.role
         }
 
