@@ -18,6 +18,7 @@ const prontuarioAcessoSchema = new mongoose.Schema({
             'leitura', 'criacao', 'edicao', 'finalizacao', 'adendo', 'compartilhamento', 'perfil_leitura', 'perfil_edicao',
             'avaliacao_leitura', 'avaliacao_criacao', 'avaliacao_edicao', 'avaliacao_finalizacao', 'avaliacao_exclusao',
             'anamnese_leitura', 'anamnese_criacao', 'anamnese_edicao', 'anamnese_compartilhamento',
+            'importacao',
         ],
         required: true,
     },

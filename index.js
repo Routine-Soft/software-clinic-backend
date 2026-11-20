@@ -5,6 +5,7 @@ import db from './src/db/db.js'
 import { idiomaDaRequisicao, traduzirMensagem } from './src/modules/shared/utils/idioma.js'
 import { userRoutes } from "./src/modules/user/user.routes.js";
 import { pacienteRoutes } from "./src/modules/paciente/paciente.routes.js";
+import { importacaoRoutes } from "./src/modules/importacao/importacao.routes.js";
 import { especialidadeRoutes } from "./src/modules/especialidade/especialidade.routes.js";
 import { profissionalRoutes } from "./src/modules/profissional/profissional.routes.js";
 import { salaRoutes } from "./src/modules/sala/sala.routes.js";
@@ -91,6 +92,7 @@ await fastify.register(painelTvRoutes, { prefix: '/api' })
 await fastify.register(whatsappRoutes, { prefix: '/api' })
 await fastify.register(termoRoutes, { prefix: '/api' })
 await fastify.register(anamneseRoutes, { prefix: '/api' })
+await fastify.register(importacaoRoutes, { prefix: '/api' })
 
 const start = async () => {
   try {

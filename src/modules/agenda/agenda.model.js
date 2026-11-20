@@ -59,6 +59,9 @@ const agendaSchema = new mongoose.Schema({
     },
     cobrancaId: { type: mongoose.Schema.Types.ObjectId, ref: 'cobrancas', default: null },
 
+    // Veio de outro sistema pela importação de planilha. Entra sem repasse (comissão zero): o outro sistema já pagou.
+    importado: { type: Boolean, default: false },
+
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
 
 }, { timestamps: true });

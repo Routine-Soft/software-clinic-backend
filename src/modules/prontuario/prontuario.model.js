@@ -43,6 +43,8 @@ const prontuarioSchema = new mongoose.Schema({
     atendimentoFinalizadoEm: { type: Date, default: null },
     adendos: { type: [adendoSchema], default: [] },
     // Especialidades da clínica que podem ler este atendimento, além do autor (escolha do autor).
+    // Veio de outro sistema pela importação de planilha: já entra finalizado, com a data do atendimento original.
+    importado: { type: Boolean, default: false },
     compartilhadoCom: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'especialidades' }], default: [] },
 
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true, index: true },
