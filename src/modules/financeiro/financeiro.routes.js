@@ -13,9 +13,14 @@ export async function financeiroRoutes(fastify) {
         fastify.addHook('preHandler', authorize(['admin', 'super_admin']))
 
         fastify.get('/financeiro', FinanceiroController.painel)
-        fastify.post('/financeiro/despesas', FinanceiroController.criarDespesa)
-        fastify.patch('/financeiro/despesas/:id', FinanceiroController.atualizarDespesa)
-        fastify.patch('/financeiro/despesas/:id/pagamento', FinanceiroController.pagarDespesa)
-        fastify.delete('/financeiro/despesas/:id', FinanceiroController.excluirDespesa)
+
+        fastify.post('/financeiro/lancamentos', FinanceiroController.criarLancamento)
+        fastify.patch('/financeiro/lancamentos/:id', FinanceiroController.atualizarLancamento)
+        fastify.patch('/financeiro/lancamentos/:id/pagamento', FinanceiroController.pagarLancamento)
+        fastify.delete('/financeiro/lancamentos/:id', FinanceiroController.excluirLancamento)
+
+        fastify.patch('/financeiro/atendimentos/:id', FinanceiroController.editarAtendimento)
+        fastify.delete('/financeiro/atendimentos/:id', FinanceiroController.excluirAtendimento)
+        fastify.delete('/financeiro/repasses/:id', FinanceiroController.desfazerRepasse)
     })
 }

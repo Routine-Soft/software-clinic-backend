@@ -3,14 +3,14 @@ import AgendaModel from '../agenda/agenda.model.js'
 import CobrancaModel from '../cobranca/cobranca.model.js'
 import ConvenioModel, { pagaOPlano } from '../convenio/convenio.model.js'
 import ComissaoPagamentoModel from '../comissao/comissao-pagamento.model.js'
-import DespesaModel from './despesa.model.js'
+import LancamentoModel from './lancamento.model.js'
 import {
     PERIODOS, hojeDiaPuro, inicioDoPeriodoDiaPuro, fimDoPeriodoDiaPuro, diaPuroDe, instanteDeBrasilia,
 } from '../shared/utils/dia-puro.js'
 
 // Financeiro da clínica (só a dona): faturamento, recebimentos, despesas, repasses, lucro e o extrato do período.
-//  - Faturamento (competência): valor dos atendimentos realizados no período, pela data da consulta.
-//  - Recebido (caixa): pagamentos registrados no período (do atendimento ou da parcela do pacote), pela hora do registro.
+//  - Faturamento (competência): atendimentos realizados no período (pela data da consulta) + receitas avulsas do período.
+//  - Recebido (caixa): pagamentos registrados no período (atendimento, parcela do pacote ou receita avulsa).
 //  - Lucro = faturamento − repasses dos atendimentos do período − despesas do período.
 
 // Formas de pagamento registradas no agendamento (as mesmas da tela de agendar).
@@ -73,19 +73,25 @@ function situacaoDoAtendimento(agenda, planoPaga, cobranca) {
 
 // Faturamento, repasses e despesas de um período, só em números (para comparar com o período anterior).
 async function numerosDoPeriodo(tenantId, { inicio, fim }) {
-    const [[atendimentos], [despesas]] = await Promise.all([
+    const [[atendimentos], [manuais]] = await Promise.all([
         AgendaModel.aggregate([
             { $match: { tenantId, status: 'realizado', data: { $gte: inicio, $lt: fim } } },
             { $group: { _id: null, faturamento: { $sum: { $ifNull: ['$financeiro.valor', 0] } }, repasse: { $sum: { $ifNull: ['$comissao.valor', 0] } } } },
         ]),
-        DespesaModel.aggregate([
+        LancamentoModel.aggregate([
             { $match: { tenantId, data: { $gte: inicio, $lt: fim } } },
-            { $group: { _id: null, total: { $sum: '$valor' } } },
+            {
+                $group: {
+                    _id: null,
+                    despesas: { $sum: { $cond: [{ $eq: ['$tipo', 'despesa'] }, '$valor', 0] } },
+                    receitas: { $sum: { $cond: [{ $eq: ['$tipo', 'receita'] }, '$valor', 0] } },
+                },
+            },
         ]),
     ])
-    const faturamento = arredondar(atendimentos?.faturamento)
+    const faturamento = arredondar((atendimentos?.faturamento ?? 0) + (manuais?.receitas ?? 0))
     const repasse = arredondar(atendimentos?.repasse)
-    const despesa = arredondar(despesas?.total)
+    const despesa = arredondar(manuais?.despesas)
     return { faturamento, lucro: arredondar(faturamento - repasse - despesa) }
 }
 
@@ -93,7 +99,7 @@ async function numerosDoPeriodo(tenantId, { inicio, fim }) {
 async function recebidoNoPeriodo(tenantId, { inicio, fim }) {
     const desde = instanteDeBrasilia(inicio)
     const ate = instanteDeBrasilia(fim)
-    const [[atendimentos], [parcelas]] = await Promise.all([
+    const [[atendimentos], [parcelas], [receitas]] = await Promise.all([
         AgendaModel.aggregate([
             { $match: { tenantId, cobrancaId: null, 'financeiro.pagoEm': { $gte: desde, $lt: ate } } },
             {
@@ -111,10 +117,14 @@ async function recebidoNoPeriodo(tenantId, { inicio, fim }) {
             { $match: { 'parcelas.pagoEm': { $gte: desde, $lt: ate } } },
             { $group: { _id: null, total: { $sum: '$parcelas.valor' }, quantidade: { $sum: 1 } } },
         ]),
+        LancamentoModel.aggregate([
+            { $match: { tenantId, tipo: 'receita', pagoEm: { $gte: desde, $lt: ate } } },
+            { $group: { _id: null, total: { $sum: '$valor' }, quantidade: { $sum: 1 } } },
+        ]),
     ])
     return {
-        total: arredondar((atendimentos?.total ?? 0) + (parcelas?.total ?? 0)),
-        quantidade: (atendimentos?.quantidade ?? 0) + (parcelas?.quantidade ?? 0),
+        total: arredondar((atendimentos?.total ?? 0) + (parcelas?.total ?? 0) + (receitas?.total ?? 0)),
+        quantidade: (atendimentos?.quantidade ?? 0) + (parcelas?.quantidade ?? 0) + (receitas?.quantidade ?? 0),
     }
 }
 
@@ -126,7 +136,7 @@ export const FinanceiroService = {
         const { inicio, fim } = periodo
         const hoje = hojeDiaPuro()
 
-        const [agendas, convenios, despesas, repassesPagos, recebido, anterior] = await Promise.all([
+        const [agendas, convenios, lancamentos, repassesPagos, recebido, anterior] = await Promise.all([
             AgendaModel.find({ tenantId, status: 'realizado', data: { $gte: inicio, $lt: fim } })
                 .select('data horaInicio horaFim pacienteId profissionalId servicoId convenioId financeiro comissao cobrancaId importado')
                 .populate('pacienteId', 'nome')
@@ -136,7 +146,7 @@ export const FinanceiroService = {
                 .sort({ data: -1, horaInicio: -1 })
                 .lean(),
             ConvenioModel.find({ tenantId }, 'nome quemPaga').lean(),
-            DespesaModel.find({ tenantId, data: { $gte: inicio, $lt: fim } })
+            LancamentoModel.find({ tenantId, data: { $gte: inicio, $lt: fim } })
                 .populate('criadoPor', 'nomeCompleto')
                 .populate('pagoPor', 'nomeCompleto')
                 .sort({ data: -1, createdAt: -1 })
@@ -212,34 +222,52 @@ export const FinanceiroService = {
             }
         })
 
-        // Despesas do período
+        // Lançamentos manuais do período: despesas e receitas avulsas
         const despesasPorCategoria = new Map()
-        const totaisDespesa = { total: 0, pagas: 0, aPagar: 0, vencidas: 0, quantidade: despesas.length }
-        const saidasDespesa = despesas.map((d) => {
-            totaisDespesa.total += d.valor
-            if (d.pagoEm) totaisDespesa.pagas += d.valor
-            else {
-                totaisDespesa.aPagar += d.valor
-                if (d.data < hoje) totaisDespesa.vencidas += 1
+        const totaisDespesa = { total: 0, pagas: 0, aPagar: 0, vencidas: 0, quantidade: 0 }
+        const totaisReceita = { total: 0, recebidas: 0, quantidade: 0 }
+        const linhasLancamento = lancamentos.map((l) => {
+            const pago = !!l.pagoEm
+            if (l.tipo === 'despesa') {
+                totaisDespesa.total += l.valor
+                totaisDespesa.quantidade += 1
+                if (pago) totaisDespesa.pagas += l.valor
+                else {
+                    totaisDespesa.aPagar += l.valor
+                    if (l.data < hoje) totaisDespesa.vencidas += 1
+                }
+                despesasPorCategoria.set(l.categoria, (despesasPorCategoria.get(l.categoria) ?? 0) + l.valor)
+            } else {
+                totaisReceita.total += l.valor
+                totaisReceita.quantidade += 1
+                faturamento += l.valor
+                if (pago) totaisReceita.recebidas += l.valor
+                else {
+                    aReceber.total += l.valor
+                    aReceber.quantidade += 1
+                }
+                if (FORMAS_PAGAMENTO.includes(l.formaPagamento)) formas[l.formaPagamento] += l.valor
+                else if (l.formaPagamento) formas.outras += l.valor
+                else formas.semForma += l.valor
             }
-            despesasPorCategoria.set(d.categoria, (despesasPorCategoria.get(d.categoria) ?? 0) + d.valor)
+            const pendente = l.tipo === 'despesa' ? 'a_pagar' : 'a_receber'
             return {
-                _id: d._id,
-                tipo: 'saida',
-                origem: 'despesa',
-                data: d.data,
+                _id: l._id,
+                tipo: l.tipo === 'despesa' ? 'saida' : 'entrada',
+                origem: l.tipo,
+                data: l.data,
                 hora: null,
-                descricao: d.descricao,
-                categoria: d.categoria,
-                fornecedor: d.fornecedor || null,
-                observacao: d.observacao || null,
-                valor: arredondar(d.valor),
-                formaPagamento: d.formaPagamento ?? null,
-                situacao: d.pagoEm ? 'pago' : (d.data < hoje ? 'vencida' : 'a_pagar'),
-                pagoEm: d.pagoEm ?? null,
-                pagoPor: d.pagoPor?.nomeCompleto ?? null,
-                lancadoPor: d.criadoPor?.nomeCompleto ?? null,
-                recorrente: !!d.grupoRecorrenciaId,
+                descricao: l.descricao,
+                categoria: l.categoria,
+                fornecedor: l.fornecedor || null,
+                observacao: l.observacao || null,
+                valor: arredondar(l.valor),
+                formaPagamento: l.formaPagamento ?? null,
+                situacao: pago ? 'pago' : (l.data < hoje ? 'vencida' : pendente),
+                pagoEm: l.pagoEm ?? null,
+                pagoPor: l.pagoPor?.nomeCompleto ?? null,
+                lancadoPor: l.criadoPor?.nomeCompleto ?? null,
+                recorrente: !!l.grupoRecorrenciaId,
             }
         })
 
@@ -258,18 +286,21 @@ export const FinanceiroService = {
             pagoPor: p.pagoPor?.nomeCompleto ?? null,
         }))
 
-        const extrato = [...entradas, ...saidasDespesa, ...saidasRepasse].sort((a, b) =>
+        const extrato = [...entradas, ...linhasLancamento, ...saidasRepasse].sort((a, b) =>
             new Date(b.data) - new Date(a.data) || String(b.hora ?? '').localeCompare(String(a.hora ?? '')))
 
         const lucro = faturamento - repasse - totaisDespesa.total
         const atendimentos = agendas.length
+        const faturamentoAtendimentos = faturamento - totaisReceita.total
 
         return {
             periodo: { chave: periodo.chave, inicio, fim: new Date(fim.getTime() - 24 * 60 * 60 * 1000) },
             resumo: {
                 atendimentos,
                 faturamento: arredondar(faturamento),
-                ticketMedio: atendimentos ? arredondar(faturamento / atendimentos) : 0,
+                ticketMedio: atendimentos ? arredondar(faturamentoAtendimentos / atendimentos) : 0,
+                faturamentoAtendimentos: arredondar(faturamentoAtendimentos),
+                receitasAvulsas: { total: arredondar(totaisReceita.total), recebidas: arredondar(totaisReceita.recebidas), quantidade: totaisReceita.quantidade },
                 recebido,
                 aReceber: { total: arredondar(aReceber.total), quantidade: aReceber.quantidade },
                 repasse: { total: arredondar(repasse), pago: arredondar(repasseJaPago), pendente: arredondar(repasse - repasseJaPago) },
