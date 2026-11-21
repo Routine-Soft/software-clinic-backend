@@ -1,4 +1,5 @@
 import { ClinicaAdminService } from './clinica-admin.service.js'
+import { ClinicaMetricasService } from './clinica-metricas.service.js'
 import { acessoDaClinica } from '../assinatura/assinatura.service.js'
 
 function comAcesso(assinatura) {
@@ -19,6 +20,12 @@ export const ClinicaAdminController = {
     async listar(req, reply) {
         const admins = await ClinicaAdminService.listar(req.query?.busca)
         return reply.send({ data: admins })
+    },
+
+    // Relatório da clínica só para o super_admin: profissões, atendimentos, preços, faturamento e repasses.
+    async metricas(req, reply) {
+        const metricas = await ClinicaMetricasService.obter(req.params.id)
+        return reply.send({ data: metricas })
     },
 
     async historicoDePagamentos(req, reply) {

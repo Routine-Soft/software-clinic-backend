@@ -15,6 +15,7 @@ import { AssinaturaService, acessoDaClinica } from '../assinatura/assinatura.ser
 import { StripeService } from '../assinatura/assinatura.stripe.js'
 import { paisValido } from '../shared/utils/pais.js'
 import AppError from '../../errors/AppError.js'
+import { profissoesPorTenant } from './clinica-metricas.service.js'
 
 // Cada clínica é o próprio usuário admin: seu tenantId aponta para si mesmo (ver user.model.js).
 // Esta camada é a visão do super_admin sobre todas as clínicas, separada da visão de cada clínica sobre si mesma.
@@ -70,7 +71,7 @@ async function contarPorTenant(Model, tenantIds) {
 
 // Números de uso e de pagamento de cada clínica, para o super_admin acompanhar quem usa e quanto já pagou.
 async function estatisticasPorTenant(tenantIds) {
-    const [usuarios, profissionais, pacientes, empresas, agendas, pagamentos] = await Promise.all([
+    const [usuarios, profissionais, pacientes, empresas, agendas, pagamentos, profissoes] = await Promise.all([
         contarPorTenant(UserModel, tenantIds),
         contarPorTenant(ProfissionalModel, tenantIds),
         contarPorTenant(PacienteModel, tenantIds),
@@ -84,6 +85,7 @@ async function estatisticasPorTenant(tenantIds) {
             // Cada clínica paga numa moeda só (Brasil em reais, fora em dólar).
             { $group: { _id: '$tenantId', total: { $sum: '$valor' }, quantidade: { $sum: 1 }, ultimo: { $max: '$aprovadoEm' }, moeda: { $max: { $ifNull: ['$moeda', 'BRL'] } } } },
         ]),
+        profissoesPorTenant(tenantIds),
     ])
 
     const agendasPorTenant = new Map()
@@ -100,6 +102,8 @@ async function estatisticasPorTenant(tenantIds) {
         return {
             usuarios: usuarios.get(chave) ?? 0,
             profissionais: profissionais.get(chave) ?? 0,
+            // Quantos profissionais de cada profissão (sem nomes), ex.: [{ profissao: 'Psicologia', profissionais: 9 }]
+            profissoes: profissoes(tenantId),
             pacientes: pacientes.get(chave) ?? 0,
             empresas: empresas.get(chave) ?? 0,
             agendamentos: {
