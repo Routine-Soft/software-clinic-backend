@@ -54,6 +54,8 @@ const agendaSchema = new mongoose.Schema({
         formasPagamento: { type: [formaPagamentoSchema], default: [] },
         // Quando o paciente pagou este agendamento. Nas sessões à vista ou parceladas, quem manda é a cobrança.
         pagoEm: { type: Date, default: null },
+        // Quem registrou o pagamento (recepção ou administração), para o extrato do Financeiro.
+        recebidoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'users', default: null },
         // Parte do paciente no atendimento pelo plano, guardada como estava no convênio ao agendar.
         coparticipacao: { type: Number, default: 0 },
     },

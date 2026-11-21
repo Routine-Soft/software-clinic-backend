@@ -7,6 +7,8 @@ const parcelaSchema = new mongoose.Schema({
     valor: { type: Number, required: true },
     vencimento: { type: Date, required: true },
     pagoEm: { type: Date, default: null },
+    // Quem registrou o pagamento (recepção ou administração), para o extrato do Financeiro.
+    recebidoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'users', default: null },
 }, { _id: false })
 
 const cobrancaSchema = new mongoose.Schema({

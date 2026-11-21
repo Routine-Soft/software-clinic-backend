@@ -4,7 +4,8 @@ import ProfissionalModel from '../profissional/profissional.model.js'
 import EspecialidadeModel from '../especialidade/especialidade.model.js'
 import AgendaModel from '../agenda/agenda.model.js'
 import ServicoModel from '../servico/servico.model.js'
-import { hojeDiaPuro } from '../shared/utils/dia-puro.js'
+import { FORMAS_PAGAMENTO } from '../financeiro/financeiro.service.js'
+import { hojeDiaPuro, inicioDoPeriodoDiaPuro, PERIODOS } from '../shared/utils/dia-puro.js'
 import AppError from '../../errors/AppError.js'
 
 // Visão só do super_admin sobre o uso de cada clínica: profissões (sem nomes de profissionais), atendimentos,
@@ -55,6 +56,82 @@ function chaveMes(data) {
     return data.toISOString().slice(0, 7)
 }
 
+
+// Faturamento de hoje, desta semana (domingo a sábado), deste mês e deste ano, com quanto entrou em cada forma de
+// pagamento (a registrada ao agendar). O que não tem forma (convênio pago pelo plano, cobrança de pacote à vista ou
+// parcelada, consulta importada) fica em `semForma`.
+async function faturamentoPorPeriodo(tenantId, hoje) {
+    const inicios = Object.fromEntries(PERIODOS.map((p) => [p, inicioDoPeriodoDiaPuro(p, hoje)]))
+    const desde = new Date(Math.min(...Object.values(inicios).map((d) => d.getTime())))
+    const match = { tenantId, status: 'realizado', data: { $gte: desde } }
+
+    const [porDia, formasPorDia] = await Promise.all([
+        AgendaModel.aggregate([
+            { $match: match },
+            {
+                $group: {
+                    _id: '$data',
+                    atendimentos: { $sum: 1 },
+                    faturamento: { $sum: { $ifNull: ['$financeiro.valor', 0] } },
+                    repasse: { $sum: { $ifNull: ['$comissao.valor', 0] } },
+                },
+            },
+        ]),
+        AgendaModel.aggregate([
+            { $match: match },
+            // Nas sessões de um pacote, as formas guardam o total do pacote: cada sessão conta só a parte dela,
+            // na mesma proporção entre as formas.
+            { $addFields: { somaFormas: { $sum: '$financeiro.formasPagamento.valor' } } },
+            { $match: { somaFormas: { $gt: 0 } } },
+            { $unwind: '$financeiro.formasPagamento' },
+            {
+                $group: {
+                    _id: { data: '$data', tipo: '$financeiro.formasPagamento.tipo' },
+                    valor: {
+                        $sum: {
+                            $multiply: [
+                                { $ifNull: ['$financeiro.valor', 0] },
+                                { $divide: [{ $ifNull: ['$financeiro.formasPagamento.valor', 0] }, '$somaFormas'] },
+                            ],
+                        },
+                    },
+                },
+            },
+        ]),
+    ])
+
+    const resultado = {}
+    for (const periodo of PERIODOS) {
+        const inicio = inicios[periodo].getTime()
+        const noPeriodo = (data) => new Date(data).getTime() >= inicio
+        const linha = { inicio: inicios[periodo], atendimentos: 0, faturamento: 0, repasse: 0 }
+        for (const d of porDia.filter((d) => noPeriodo(d._id))) {
+            linha.atendimentos += d.atendimentos
+            linha.faturamento += d.faturamento
+            linha.repasse += d.repasse
+        }
+        const formas = Object.fromEntries(FORMAS_PAGAMENTO.map((f) => [f, 0]))
+        let outras = 0
+        for (const f of formasPorDia.filter((f) => noPeriodo(f._id.data))) {
+            if (f._id.tipo in formas) formas[f._id.tipo] += f.valor
+            else outras += f.valor
+        }
+        const somaFormas = Object.values(formas).reduce((a, b) => a + b, 0) + outras
+        resultado[periodo] = {
+            ...linha,
+            faturamento: arredondar(linha.faturamento),
+            repasse: arredondar(linha.repasse),
+            ticketMedio: linha.atendimentos ? arredondar(linha.faturamento / linha.atendimentos) : 0,
+            formasPagamento: {
+                ...Object.fromEntries(Object.entries(formas).map(([k, v]) => [k, arredondar(v)])),
+                outras: arredondar(outras),
+                semForma: arredondar(Math.max(0, linha.faturamento - somaFormas)),
+            },
+        }
+    }
+    return resultado
+}
+
 export const ClinicaMetricasService = {
 
     async obter(id) {
@@ -68,11 +145,9 @@ export const ClinicaMetricasService = {
         const tenantId = admin._id
 
         const hoje = hojeDiaPuro()
-        const inicioMes = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1))
-        const inicioAno = new Date(Date.UTC(hoje.getUTCFullYear(), 0, 1))
         const inicio12Meses = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() - 11, 1))
 
-        const [profissionais, porProfissional, porServico, porMes, servicos] = await Promise.all([
+        const [profissionais, porProfissional, porServico, porMes, servicos, periodos] = await Promise.all([
             profissaoPorProfissional([tenantId]),
             AgendaModel.aggregate([
                 { $match: { tenantId } },
@@ -111,6 +186,7 @@ export const ClinicaMetricasService = {
                 },
             ]),
             ServicoModel.find({ tenantId }, 'nome tipo preco').lean(),
+            faturamentoPorPeriodo(tenantId, hoje),
         ])
 
         // Por profissão
@@ -183,14 +259,6 @@ export const ClinicaMetricasService = {
             })
         }
 
-        const somaDesde = (inicio) => meses
-            .filter((m) => m.mes >= chaveMes(inicio))
-            .reduce((acc, m) => ({
-                atendimentos: acc.atendimentos + m.atendimentos,
-                faturamento: arredondar(acc.faturamento + m.faturamento),
-                repasse: arredondar(acc.repasse + m.repasse),
-            }), { atendimentos: 0, faturamento: 0, repasse: 0 })
-
         const total = listaProfissoes.reduce((acc, l) => ({
             atendimentos: acc.atendimentos + l.atendimentos.realizados,
             faturamento: arredondar(acc.faturamento + l.faturamento),
@@ -200,11 +268,11 @@ export const ClinicaMetricasService = {
         return {
             // Faturamento = soma do valor dos atendimentos realizados (pela data da consulta).
             faturamento: {
-                mesAtual: somaDesde(inicioMes),
-                anoAtual: somaDesde(inicioAno),
                 total,
                 ticketMedio: total.atendimentos ? arredondar(total.faturamento / total.atendimentos) : 0,
                 meses,
+                // Filtro da tela: diario, semanal, mensal e anual (período atual de cada um).
+                periodos,
             },
             profissoes: listaProfissoes,
             servicos: listaServicos,

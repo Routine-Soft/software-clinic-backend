@@ -464,4 +464,17 @@ export const MENSAGENS_EN = {
     'Há mais de um profissional chamado {0}: informe o número do registro.': 'There is more than one professional named {0}: enter the license number.',
     'Situação da consulta não reconhecida: {0}': 'Appointment status not recognized: {0}',
     'Você só pode importar os seus próprios atendimentos': 'You can only import your own visits',
+    // Financeiro (despesas)
+    'Despesa não encontrada': 'Expense not found',
+    'Informe a descrição da despesa': 'Enter the expense description',
+    'Informe um valor maior que zero': 'Enter an amount greater than zero',
+    'Informe a data da despesa': 'Enter the expense date',
+    'A despesa pode se repetir por até 24 meses': 'The expense can repeat for up to 24 months',
+    'Despesa lançada para os próximos {0} meses': 'Expense added for the next {0} months',
+    'Despesa lançada com sucesso': 'Expense added successfully',
+    'Despesa atualizada com sucesso': 'Expense updated successfully',
+    'Despesa marcada como paga': 'Expense marked as paid',
+    'Pagamento da despesa desfeito': 'Expense payment undone',
+    '{0} despesas excluídas': '{0} expenses deleted',
+    'Despesa excluída': 'Expense deleted',
 };

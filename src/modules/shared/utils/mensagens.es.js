@@ -462,4 +462,17 @@ export const MENSAGENS_ES = {
     'Há mais de um profissional chamado {0}: informe o número do registro.': 'Hay más de un profesional llamado {0}: indica el número de registro.',
     'Situação da consulta não reconhecida: {0}': 'Estado de la cita no reconocido: {0}',
     'Você só pode importar os seus próprios atendimentos': 'Solo puedes importar tus propias atenciones',
+    // Financeiro (despesas)
+    'Despesa não encontrada': 'Gasto no encontrado',
+    'Informe a descrição da despesa': 'Indique la descripción del gasto',
+    'Informe um valor maior que zero': 'Indique un valor mayor que cero',
+    'Informe a data da despesa': 'Indique la fecha del gasto',
+    'A despesa pode se repetir por até 24 meses': 'El gasto puede repetirse hasta 24 meses',
+    'Despesa lançada para os próximos {0} meses': 'Gasto registrado para los próximos {0} meses',
+    'Despesa lançada com sucesso': 'Gasto registrado con éxito',
+    'Despesa atualizada com sucesso': 'Gasto actualizado con éxito',
+    'Despesa marcada como paga': 'Gasto marcado como pagado',
+    'Pagamento da despesa desfeito': 'Pago del gasto deshecho',
+    '{0} despesas excluídas': '{0} gastos eliminados',
+    'Despesa excluída': 'Gasto eliminado',
 };

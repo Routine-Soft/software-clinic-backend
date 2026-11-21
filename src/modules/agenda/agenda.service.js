@@ -339,6 +339,7 @@ export const AgendaService = {
         }
 
         const pagoEm = pago ? new Date() : null
+        const recebidoPor = pago ? usuario.id : null
         if (agenda.cobrancaId) {
             const cobranca = await CobrancaModel.findOne({ _id: agenda.cobrancaId, tenantId })
             const linha = cobranca?.parcelas.find((p) => p.numero === (parcela ?? 1))
@@ -346,6 +347,7 @@ export const AgendaService = {
                 throw new AppError('Parcela não encontrada', 404)
             }
             linha.pagoEm = pagoEm
+            linha.recebidoPor = recebidoPor
             await cobranca.save()
         } else {
             const { plano } = await regraDoConvenio(agenda.convenioId, tenantId)
@@ -355,7 +357,7 @@ export const AgendaService = {
             if (!plano && Number(agenda.financeiro?.valor) === 0) {
                 throw new AppError('Este atendimento é gratuito', 400)
             }
-            await AgendaModel.updateOne({ _id: id, tenantId }, { $set: { 'financeiro.pagoEm': pagoEm } })
+            await AgendaModel.updateOne({ _id: id, tenantId }, { $set: { 'financeiro.pagoEm': pagoEm, 'financeiro.recebidoPor': recebidoPor } })
         }
         return await buscarCompleta(id, tenantId)
     },
