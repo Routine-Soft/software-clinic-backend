@@ -233,6 +233,7 @@ export const MENSAGENS_EN = {
     'Perfil clínico salvo': 'Clinical profile saved',
     'Prontuário não encontrado': 'Health record not found',
     'Este atendimento não foi liberado para a sua especialidade.': 'This session has not been shared with your specialty.',
+    'Finalize o atendimento antes de imprimir.': 'Finish the session before printing.',
     'Agendamento não encontrado para este paciente': 'Appointment not found for this patient',
     'Você já tem um atendimento em andamento com este paciente. Finalize-o antes de iniciar outro.': 'You already have a session in progress with this patient. Finish it before starting another.',
     'Este atendimento já foi finalizado e não pode mais ser alterado. Para corrigir ou complementar, registre um adendo.': 'This session has already been finished and can no longer be changed. To correct or add to it, record an addendum.',

@@ -232,6 +232,7 @@ export const MENSAGENS_ES = {
     'Perfil clínico salvo': 'Perfil clínico guardado',
     'Prontuário não encontrado': 'Historia clínica no encontrada',
     'Este atendimento não foi liberado para a sua especialidade.': 'Esta atención no fue compartida con tu especialidad.',
+    'Finalize o atendimento antes de imprimir.': 'Finaliza la atención antes de imprimir.',
     'Agendamento não encontrado para este paciente': 'Cita no encontrada para este paciente',
     'Você já tem um atendimento em andamento com este paciente. Finalize-o antes de iniciar outro.': 'Ya tienes una atención en curso con este paciente. Finalízala antes de iniciar otra.',
     'Este atendimento já foi finalizado e não pode mais ser alterado. Para corrigir ou complementar, registre um adendo.': 'Esta atención ya fue finalizada y no se puede modificar. Para corregirla o completarla, registra una adenda.',

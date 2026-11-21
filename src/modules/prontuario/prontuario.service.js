@@ -5,6 +5,7 @@ import AgendaModel from '../agenda/agenda.model.js'
 import { AgendaService } from '../agenda/agenda.service.js'
 import { createProntuarioDTO, updateProntuarioDTO } from './prontuario.dto.js'
 import { ProntuarioAcesso } from './prontuario.acesso.js'
+import UserModel from '../user/user.model.js'
 import AppError from '../../errors/AppError.js'
 
 // Todas as funções recebem o contexto { usuario, ip } da requisição; o tenant vem do cadastro do profissional.
@@ -89,6 +90,32 @@ export const ProntuarioService = {
         }
         await ProntuarioAcesso.registrar(contexto, 'leitura', { pacienteId: prontuario.pacienteId, prontuarioId: prontuario._id })
         return await popular(ProntuarioModel.findById(prontuario._id))
+    },
+
+    // Folha para imprimir e carimbar (enquanto não há assinatura ICP-Brasil): o atendimento com os dados do
+    // paciente, o registro do profissional (CRM, CRP...) e o nome da clínica. Só atendimento finalizado,
+    // para o papel carimbado não ficar diferente do que está no sistema. A impressão fica na auditoria.
+    async impressao(contextoRequisicao, id) {
+        const contexto = await contextoDe(contextoRequisicao)
+        const tenantId = contexto.profissional.tenantId
+        const prontuario = await carregar(id, tenantId)
+        if (!ProntuarioAcesso.podeLerProntuario(contexto.profissional, prontuario)) {
+            throw new AppError('Este atendimento não foi liberado para a sua especialidade.', 403)
+        }
+        if (!prontuario.atendimentoFinalizadoEm) {
+            throw new AppError('Finalize o atendimento antes de imprimir.', 400)
+        }
+        const [completo, clinica] = await Promise.all([
+            ProntuarioModel.findById(prontuario._id)
+                .populate('pacienteId', 'nome dataNascimento cpf')
+                .populate('profissionalId', 'nome tipoRegistro numeroRegistro')
+                .populate('convenioId', 'nome')
+                .populate('adendos.profissionalId', 'nome')
+                .lean(),
+            UserModel.findById(tenantId, 'nomeEmpresa').lean(),
+        ])
+        await ProntuarioAcesso.registrar(contexto, 'impressao', { pacienteId: prontuario.pacienteId, prontuarioId: prontuario._id })
+        return { ...completo, clinica: clinica?.nomeEmpresa ?? '' }
     },
 
     // O autor é sempre o profissional logado; o que vier no corpo como profissionalId é ignorado.

@@ -17,6 +17,7 @@ export async function prontuarioRoutes(fastify) {
         fastify.get('/prontuarios/em-atendimento', { preHandler: authorize(['admin', 'recepcao', 'super_admin']) }, ProntuarioController.totalEmAtendimento)
         fastify.get('/prontuarios', ProntuarioController.getAllProntuarios)
         fastify.get('/prontuarios/:id', ProntuarioController.getProntuarioById)
+        fastify.get('/prontuarios/:id/impressao', ProntuarioController.impressao)
         fastify.post('/prontuarios', ProntuarioController.createProntuario)
         fastify.patch('/prontuarios/:id', ProntuarioController.updateProntuario)
         fastify.patch('/prontuarios/:id/finalizar', ProntuarioController.finalizarAtendimento)

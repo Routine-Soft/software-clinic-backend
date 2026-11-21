@@ -22,6 +22,10 @@ export const ProntuarioController = {
         return reply.send({ data: prontuario })
     },
 
+    async impressao(req, reply) {
+        return reply.send({ data: await ProntuarioService.impressao(contexto(req), req.params.id) })
+    },
+
     async createProntuario(req, reply) {
         const prontuario = await ProntuarioService.createProntuario(contexto(req), req.body)
         return reply.code(201).send({ data: prontuario, message: 'Atendimento iniciado' })
